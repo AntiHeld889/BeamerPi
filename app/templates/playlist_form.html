@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>{% if playlist %}Playlist bearbeiten{% else %}Neue Playlist{% endif %}</h2>
+<form method="post" class="mt-3">
+  <div class="mb-3">
+    <label class="form-label" for="name">Name</label>
+    <input class="form-control" id="name" type="text" name="name" value="{{ playlist.name if playlist else '' }}" {% if playlist %}readonly{% endif %} required>
+  </div>
+  <div class="mb-3">
+    <label class="form-label" for="loop_video">Loop-Video</label>
+    <select class="form-select" id="loop_video" name="loop_video">
+      <option value="">(kein Loop)</option>
+      {% for name, path in videos.items() %}
+        <option value="{{ name }}" {% if playlist and playlist.loop_video == name %}selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Playlist Videos</label>
+    <div class="list-group video-list">
+      {% for name, path in videos.items() %}
+        <label class="list-group-item">
+          <input class="form-check-input me-1" type="checkbox" name="videos" value="{{ name }}" {% if playlist and name in playlist.videos %}checked{% endif %}>
+          {{ name }}
+          <a href="{{ url_for('preview', filename=name) }}" target="_blank" class="float-end">Vorschau</a>
+        </label>
+      {% else %}
+        <p class="text-muted">Keine Videos gefunden.</p>
+      {% endfor %}
+    </div>
+  </div>
+  <button type="submit" class="btn btn-primary">Speichern</button>
+  <a href="{{ url_for('index') }}" class="btn btn-secondary">Abbrechen</a>
+</form>
+{% endblock %}
