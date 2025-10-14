@@ -92,7 +92,7 @@ class VideoPlayer:
             "mpv",
             "--quiet",
             "--fs",
-            "--no-osd",
+            "--osd-level=0",
         ]
         if loop:
             command.append("--loop-file=inf")
