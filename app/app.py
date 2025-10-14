@@ -159,6 +159,16 @@ def _trigger_next() -> bool:
 @app.route("/")
 def index() -> str:
     videos = _get_videos()
+    search_query = request.args.get("q", "").strip()
+    search_results: Optional[List[Dict[str, str]]] = None
+
+    if search_query:
+        lowered_query = search_query.lower()
+        search_results = [
+            {"name": name, "path": name}
+            for name in videos.keys()
+            if lowered_query in name.lower()
+        ]
     return render_template(
         "index.html",
         playlists=_playlists,
@@ -168,6 +178,9 @@ def index() -> str:
         videos=videos,
         video_tree=_build_video_tree(videos),
         settings=_settings_manager.settings,
+        video_directory=VIDEO_DIRECTORY,
+        search_query=search_query,
+        search_results=search_results,
     )
 
 
