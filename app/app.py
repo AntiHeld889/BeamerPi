@@ -164,6 +164,7 @@ def index() -> str:
         playlists=_playlists,
         active_playlist=_active_playlist,
         active_progress=_get_active_progress(),
+        player_status=_player.get_status(),
         videos=videos,
         video_tree=_build_video_tree(videos),
         settings=_settings_manager.settings,
@@ -232,6 +233,17 @@ def trigger() -> Response:
     else:
         flash("Kein Video konnte gestartet werden.", "error")
     return redirect(url_for("index"))
+
+
+@app.route("/api/status", methods=["GET"])
+def api_status() -> Response:
+    return jsonify(
+        {
+            "player_status": _player.get_status(),
+            "active_playlist": _active_playlist,
+            "active_progress": _get_active_progress(),
+        }
+    )
 
 
 @app.route("/api/trigger", methods=["POST"])

@@ -53,7 +53,24 @@
                 <p class="mb-1 text-muted"><strong>Verbleibende Videos:</strong> {{ active_progress.remaining_videos }}</p>
               {% endif %}
               {% if active_playlist == name %}
-                <span class="badge bg-success">aktiv</span>
+                {% set mode = player_status.mode if player_status else 'idle' %}
+                {% set indicator = {
+                  'loop': ('text-success', 'bg-success', 'Loop-Video'),
+                  'trigger': ('text-danger', 'bg-danger', 'Trigger-Video'),
+                  'idle': ('text-muted', 'bg-secondary', 'Keine Wiedergabe')
+                } %}
+                {% set text_class, dot_class, label = indicator.get(mode, indicator['idle']) %}
+                <div class="d-flex align-items-center gap-2 mt-2">
+                  <span class="badge bg-success">aktiv</span>
+                  <span
+                    class="status-indicator {{ text_class }}"
+                    id="player-status"
+                    data-player-mode="{{ mode }}"
+                  >
+                    <span class="status-indicator-dot {{ dot_class }}" data-player-status-dot></span>
+                    <span data-player-status-label>{{ label }}</span>
+                  </span>
+                </div>
               {% endif %}
             </div>
             <div class="text-end">

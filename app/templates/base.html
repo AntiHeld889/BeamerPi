@@ -18,6 +18,8 @@
       .video-tree .folder-toggle::before { content: '\25B8'; transition: transform 0.2s ease-in-out; color: #0d6efd; }
       .video-tree .folder.expanded > .folder-header .folder-toggle::before { transform: rotate(90deg); }
       .video-tree .folder.collapsed > .folder-children { display: none; }
+      .status-indicator { display: inline-flex; align-items: center; gap: 0.35rem; font-weight: 500; }
+      .status-indicator-dot { width: 0.75rem; height: 0.75rem; border-radius: 50%; display: inline-block; }
     </style>
   </head>
   <body>
@@ -72,6 +74,47 @@
             }
           });
         });
+
+        const statusElement = document.querySelector('#player-status');
+        if (statusElement) {
+          const statusLabel = statusElement.querySelector('[data-player-status-label]');
+          const statusDot = statusElement.querySelector('[data-player-status-dot]');
+          const textClasses = ['text-success', 'text-danger', 'text-muted'];
+          const dotClasses = ['bg-success', 'bg-danger', 'bg-secondary'];
+          const modeConfig = {
+            loop: { text: 'text-success', dot: 'bg-success', label: 'Loop-Video' },
+            trigger: { text: 'text-danger', dot: 'bg-danger', label: 'Trigger-Video' },
+            idle: { text: 'text-muted', dot: 'bg-secondary', label: 'Keine Wiedergabe' },
+          };
+
+          const applyMode = (mode) => {
+            const config = modeConfig[mode] || modeConfig.idle;
+            statusElement.dataset.playerMode = mode;
+            statusElement.classList.remove(...textClasses);
+            statusElement.classList.add(config.text);
+            statusDot.classList.remove(...dotClasses);
+            statusDot.classList.add(config.dot);
+            statusLabel.textContent = config.label;
+          };
+
+          const fetchStatus = async () => {
+            try {
+              const response = await fetch('/api/status', { headers: { 'Accept': 'application/json' } });
+              if (!response.ok) {
+                return;
+              }
+              const data = await response.json();
+              const mode = data && data.player_status ? data.player_status.mode : 'idle';
+              applyMode(mode);
+            } catch (error) {
+              console.error('Status update failed', error);
+            }
+          };
+
+          applyMode(statusElement.dataset.playerMode || 'idle');
+          fetchStatus();
+          setInterval(fetchStatus, 3000);
+        }
       });
     </script>
   </body>
