@@ -1,0 +1,10 @@
+{
+  "Halloween": {
+    "name": "Halloween",
+    "loop_video": "Blood Walls/Wall/Dripping Blood Wall - Spotlight Buffer.mp4",
+    "videos": [
+      "Blood Walls/Wall/Bloody Massacre Wall - Strobe.mp4",
+      "Blood Walls/Wall/Dripping Blood Wall - Lightning.mp4"
+    ]
+  }
+}
