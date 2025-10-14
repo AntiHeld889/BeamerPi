@@ -93,6 +93,8 @@ class VideoPlayer:
             "--quiet",
             "--fs",
             "--osd-level=0",
+            "--force-window=immediate",
+            "--background=0.0/0.0/0.0",
         ]
         if loop:
             command.append("--loop-file=inf")
