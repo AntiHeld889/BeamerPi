@@ -48,6 +48,10 @@
               <h5 class="mb-1">{{ playlist.name }}</h5>
               <p class="mb-1"><strong>Loop:</strong> {{ playlist.loop_video or 'kein Loop' }}</p>
               <p class="mb-1"><strong>Videos:</strong> {{ playlist.videos|length }}</p>
+              {% if active_progress and active_progress.playlist_name == name %}
+                <p class="mb-1 text-muted"><strong>Als nächstes Video:</strong> {{ active_progress.next_video_index }}/{{ active_progress.total_videos }} ({{ active_progress.next_video }})</p>
+                <p class="mb-1 text-muted"><strong>Verbleibende Videos:</strong> {{ active_progress.remaining_videos }}</p>
+              {% endif %}
               {% if active_playlist == name %}
                 <span class="badge bg-success">aktiv</span>
               {% endif %}

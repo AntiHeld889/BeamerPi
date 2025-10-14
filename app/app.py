@@ -97,6 +97,30 @@ def _save_playlists() -> None:
     _storage.save_playlists(_playlists)
 
 
+def _get_active_progress() -> Optional[Dict[str, Any]]:
+    with _state_lock:
+        active_name = _active_playlist
+        next_index = _active_index
+
+    if not active_name:
+        return None
+
+    playlist = _get_playlist(active_name)
+    if playlist is None or not playlist.videos:
+        return None
+
+    total_videos = len(playlist.videos)
+    next_index %= total_videos
+
+    return {
+        "playlist_name": active_name,
+        "next_video_index": next_index + 1,
+        "total_videos": total_videos,
+        "next_video": playlist.videos[next_index],
+        "remaining_videos": total_videos - next_index,
+    }
+
+
 def _start_playlist(name: str) -> bool:
     global _active_playlist, _active_index
     playlist = _get_playlist(name)
@@ -139,6 +163,7 @@ def index() -> str:
         "index.html",
         playlists=_playlists,
         active_playlist=_active_playlist,
+        active_progress=_get_active_progress(),
         videos=videos,
         video_tree=_build_video_tree(videos),
         settings=_settings_manager.settings,
