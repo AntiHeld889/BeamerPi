@@ -260,6 +260,19 @@ def api_trigger() -> Response:
     return jsonify({"status": "ok"})
 
 
+@app.route("/api/status", methods=["GET"])
+def api_status() -> Response:
+    with _state_lock:
+        active_name = _active_playlist
+    return jsonify(
+        {
+            "status": _player.get_status(),
+            "active_playlist": active_name,
+            "active_progress": _get_active_progress(),
+        }
+    )
+
+
 @app.route("/webhook/<name>", methods=["POST"])
 def webhook(name: str) -> Response:
     if not _start_playlist(name):
