@@ -30,13 +30,16 @@ class VideoPlayer:
         self._loop_dirty = False
         self._stop_event = threading.Event()
         self._wakeup_event = threading.Event()
+        self._state_lock = threading.Lock()
         self._worker = threading.Thread(target=self._run, daemon=True)
         self._worker.start()
 
     # Public API ---------------------------------------------------------------
     def set_loop_video(self, filename: Optional[str]) -> None:
-        self._loop_video = self._resolve_video(filename) if filename else None
-        self._loop_dirty = True
+        loop_video = self._resolve_video(filename) if filename else None
+        with self._state_lock:
+            self._loop_video = loop_video
+            self._loop_dirty = True
         self._wakeup_event.set()
 
     def enqueue_video(self, filename: str) -> None:
@@ -64,11 +67,16 @@ class VideoPlayer:
             self._ensure_mpv_running()
             self._poll_events()
 
-            if self._loop_dirty and not self._playing_trigger:
-                if self._ensure_loop_state():
-                    self._loop_dirty = False
+            with self._state_lock:
+                loop_dirty = self._loop_dirty
+                playing_trigger = self._playing_trigger
 
-            if self._playing_trigger:
+            if loop_dirty and not playing_trigger:
+                if self._ensure_loop_state():
+                    with self._state_lock:
+                        self._loop_dirty = False
+
+            if playing_trigger:
                 self._wait_for_events(timeout=0.1)
                 continue
 
@@ -87,27 +95,36 @@ class VideoPlayer:
     def _start_trigger(self, path: Path) -> None:
         if not self._ensure_mpv_running():
             return
-        self._playing_trigger = True
-        self._current_video = path
-        self._current_is_loop = False
+        with self._state_lock:
+            self._playing_trigger = True
+            self._current_video = path
+            self._current_is_loop = False
         self._load_file(path, loop=False)
 
     def _ensure_loop_state(self) -> bool:
         if not self._ensure_mpv_running():
             return False
-        if self._loop_video is None:
-            if self._current_video is not None:
+        with self._state_lock:
+            loop_video = self._loop_video
+            current_video = self._current_video
+            current_is_loop = self._current_is_loop
+            playing_trigger = self._playing_trigger
+
+        if loop_video is None:
+            if current_video is not None:
                 self._send_command(["stop"])
-            self._current_video = None
-            self._current_is_loop = False
+            with self._state_lock:
+                self._current_video = None
+                self._current_is_loop = False
             return True
-        if self._playing_trigger:
+        if playing_trigger:
             return False
-        if self._current_is_loop and self._current_video == self._loop_video:
+        if current_is_loop and current_video == loop_video:
             return True
-        self._current_video = self._loop_video
-        self._current_is_loop = True
-        self._load_file(self._loop_video, loop=True)
+        with self._state_lock:
+            self._current_video = loop_video
+            self._current_is_loop = True
+        self._load_file(loop_video, loop=True)
         return True
 
     def _ensure_mpv_running(self) -> bool:
@@ -174,7 +191,8 @@ class VideoPlayer:
                     sock.setblocking(False)
                     self._socket = sock
                     self._recv_buffer = b""
-                    self._loop_dirty = True
+                    with self._state_lock:
+                        self._loop_dirty = True
                     self._wakeup_event.set()
                     return
                 except OSError:
@@ -198,9 +216,10 @@ class VideoPlayer:
             except subprocess.TimeoutExpired:
                 self._mpv_process.kill()
         self._mpv_process = None
-        self._current_video = None
-        self._current_is_loop = False
-        self._playing_trigger = False
+        with self._state_lock:
+            self._current_video = None
+            self._current_is_loop = False
+            self._playing_trigger = False
 
     def _load_file(self, path: Path, *, loop: bool) -> None:
         self._send_command(["loadfile", str(path), "replace"])
@@ -256,15 +275,44 @@ class VideoPlayer:
                 }.get(reason, reason)
 
             if reason in (None, 0):
-                self._playing_trigger = False
-                self._current_video = None
-                self._current_is_loop = False
-                self._loop_dirty = True
+                with self._state_lock:
+                    self._playing_trigger = False
+                    self._current_video = None
+                    self._current_is_loop = False
+                    self._loop_dirty = True
                 self._wakeup_event.set()
         elif name == "property-change":
             pass
 
     def _handle_mpv_disconnect(self) -> None:
         self._stop_mpv()
-        self._loop_dirty = True
+        with self._state_lock:
+            self._loop_dirty = True
         self._wakeup_event.set()
+
+    def get_status(self) -> dict:
+        with self._state_lock:
+            current_video = self._current_video
+            current_is_loop = self._current_is_loop
+            playing_trigger = self._playing_trigger
+            loop_video = self._loop_video
+
+        def _relative(path: Optional[Path]) -> Optional[str]:
+            if path is None:
+                return None
+            try:
+                return path.relative_to(self.video_dir).as_posix()
+            except ValueError:
+                return str(path)
+
+        mode = "idle"
+        if playing_trigger:
+            mode = "trigger"
+        elif current_is_loop and loop_video is not None:
+            mode = "loop"
+
+        return {
+            "mode": mode,
+            "current_video": _relative(current_video),
+            "loop_video": _relative(loop_video),
+        }
