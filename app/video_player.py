@@ -30,7 +30,6 @@ class VideoPlayer:
     def enqueue_video(self, filename: str) -> None:
         video_path = self._resolve_video(filename)
         self._queue.put(video_path)
-        self._stop_loop()
 
     def stop(self) -> None:
         self._stop_event.set()
@@ -57,6 +56,8 @@ class VideoPlayer:
             self._stop_loop()
             self._play_video(video)
             self._queue.task_done()
+            if not self._stop_event.is_set() and self._queue.empty():
+                self._ensure_loop_running()
 
     def _ensure_loop_running(self) -> None:
         if self._loop_video is None:
