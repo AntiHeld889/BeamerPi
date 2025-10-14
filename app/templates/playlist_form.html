@@ -1,5 +1,41 @@
 {% extends "base.html" %}
 
+{% macro render_loop_options(nodes, level=0) %}
+  {% for node in nodes %}
+    {% if node.is_file %}
+      {% set indent = '&nbsp;' * (level * 4) %}
+      <option value="{{ node.path }}" {% if playlist and playlist.loop_video == node.path %}selected{% endif %}>{{ indent | safe }}{{ node.name }}</option>
+    {% else %}
+      {% set indent = '&nbsp;' * (level * 4) %}
+      <option value="" disabled class="bg-light text-muted">{{ indent | safe }}{{ node.path }}/</option>
+      {{ render_loop_options(node.children, level + 1) }}
+    {% endif %}
+  {% endfor %}
+{% endmacro %}
+
+{% macro render_video_checkboxes(nodes) %}
+  {% for node in nodes %}
+    {% if node.is_file %}
+      <label class="list-group-item d-flex align-items-center">
+        <input class="form-check-input me-2" type="checkbox" name="videos" value="{{ node.path }}" {% if playlist and node.path in playlist.videos %}checked{% endif %}>
+        <span class="flex-grow-1">{{ node.name }}</span>
+        <a href="{{ url_for('preview', filename=node.path) }}" target="_blank" class="ms-2">Vorschau</a>
+      </label>
+    {% else %}
+      <div class="list-group-item">
+        <div class="folder-title">{{ node.path }}/</div>
+        {% if node.children %}
+          <div class="list-group list-group-flush ms-3 mt-2">
+            {{ render_video_checkboxes(node.children) }}
+          </div>
+        {% else %}
+          <p class="text-muted small mb-0">Keine Videos in diesem Ordner.</p>
+        {% endif %}
+      </div>
+    {% endif %}
+  {% endfor %}
+{% endmacro %}
+
 {% block content %}
 <h2>{% if playlist %}Playlist bearbeiten{% else %}Neue Playlist{% endif %}</h2>
 <form method="post" class="mt-3">
@@ -11,24 +47,18 @@
     <label class="form-label" for="loop_video">Loop-Video</label>
     <select class="form-select" id="loop_video" name="loop_video">
       <option value="">(kein Loop)</option>
-      {% for name, path in videos.items() %}
-        <option value="{{ name }}" {% if playlist and playlist.loop_video == name %}selected{% endif %}>{{ name }}</option>
-      {% endfor %}
+      {{ render_loop_options(video_tree) }}
     </select>
   </div>
   <div class="mb-3">
     <label class="form-label">Playlist Videos</label>
-    <div class="list-group video-list">
-      {% for name, path in videos.items() %}
-        <label class="list-group-item">
-          <input class="form-check-input me-1" type="checkbox" name="videos" value="{{ name }}" {% if playlist and name in playlist.videos %}checked{% endif %}>
-          {{ name }}
-          <a href="{{ url_for('preview', filename=name) }}" target="_blank" class="float-end">Vorschau</a>
-        </label>
-      {% else %}
-        <p class="text-muted">Keine Videos gefunden.</p>
-      {% endfor %}
-    </div>
+    {% if video_tree %}
+      <div class="list-group video-list video-tree">
+        {{ render_video_checkboxes(video_tree) }}
+      </div>
+    {% else %}
+      <p class="text-muted">Keine Videos gefunden.</p>
+    {% endif %}
   </div>
   <button type="submit" class="btn btn-primary">Speichern</button>
   <a href="{{ url_for('index') }}" class="btn btn-secondary">Abbrechen</a>

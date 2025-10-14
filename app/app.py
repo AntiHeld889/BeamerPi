@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import threading
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from flask import (
     Flask,
@@ -46,6 +46,47 @@ def _get_videos() -> Dict[str, Path]:
                 relative_name = entry.relative_to(base).as_posix()
                 videos[relative_name] = entry
     return videos
+
+
+def _build_video_tree(videos: Dict[str, Path]) -> List[Dict[str, Any]]:
+    tree: Dict[str, Any] = {}
+
+    def _insert(parts: List[str], full_path: str, node: Dict[str, Any]) -> None:
+        if len(parts) == 1:
+            node.setdefault("__files__", []).append({"name": parts[0], "path": full_path})
+            return
+        head, *tail = parts
+        child = node.setdefault(head, {})
+        _insert(tail, full_path, child)
+
+    for relative_name in sorted(videos):
+        _insert(relative_name.split("/"), relative_name, tree)
+
+    def _to_nodes(node: Dict[str, Any], prefix: str = "") -> List[Dict[str, Any]]:
+        directories: List[Dict[str, Any]] = []
+        for name in sorted(key for key in node.keys() if key != "__files__"):
+            child_prefix = f"{prefix}{name}/"
+            directories.append(
+                {
+                    "name": name,
+                    "path": child_prefix.rstrip("/"),
+                    "is_file": False,
+                    "children": _to_nodes(node[name], child_prefix),
+                }
+            )
+
+        files: List[Dict[str, Any]] = [
+            {
+                "name": file_entry["name"],
+                "path": file_entry["path"],
+                "is_file": True,
+                "children": [],
+            }
+            for file_entry in sorted(node.get("__files__", []), key=lambda item: item["name"])
+        ]
+        return directories + files
+
+    return _to_nodes(tree)
 
 
 def _get_playlist(name: str) -> Optional[Playlist]:
@@ -99,6 +140,7 @@ def index() -> str:
         playlists=_playlists,
         active_playlist=_active_playlist,
         videos=videos,
+        video_tree=_build_video_tree(videos),
         settings=_settings_manager.settings,
     )
 
@@ -118,7 +160,12 @@ def create_playlist() -> Response:
             _save_playlists()
             flash("Playlist gespeichert.", "success")
             return redirect(url_for("index"))
-    return render_template("playlist_form.html", videos=videos, playlist=None)
+    return render_template(
+        "playlist_form.html",
+        videos=videos,
+        video_tree=_build_video_tree(videos),
+        playlist=None,
+    )
 
 
 @app.route("/playlist/<name>/edit", methods=["GET", "POST"])
@@ -136,7 +183,12 @@ def edit_playlist(name: str) -> Response:
         _save_playlists()
         flash("Playlist aktualisiert.", "success")
         return redirect(url_for("index"))
-    return render_template("playlist_form.html", videos=videos, playlist=playlist)
+    return render_template(
+        "playlist_form.html",
+        videos=videos,
+        video_tree=_build_video_tree(videos),
+        playlist=playlist,
+    )
 
 
 @app.route("/playlist/<name>/start", methods=["POST"])
