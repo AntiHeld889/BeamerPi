@@ -17,7 +17,7 @@ from flask import (
     url_for,
 )
 
-from .settings import AVAILABLE_INPUT_GPIO_PINS, SettingsManager
+from .settings import AVAILABLE_INPUT_GPIO_OPTIONS, SettingsManager
 from .storage import Playlist, StorageManager
 from .video_player import VideoPlayer
 from .gpio_input import GPIOTriggerInput
@@ -160,7 +160,10 @@ def _trigger_next() -> bool:
 
 
 _gpio_trigger = GPIOTriggerInput(_trigger_next)
-_gpio_trigger.configure(_settings_manager.get_input_gpio())
+_gpio_trigger.configure(
+    _settings_manager.get_input_gpio(),
+    _settings_manager.get_input_gpio_active_high(),
+)
 
 
 # Routes ----------------------------------------------------------------------
@@ -280,9 +283,14 @@ def settings() -> Response:
     if request.method == "POST":
         audio_output = request.form.get("audio_output", "auto")
         input_gpio = request.form.get("input_gpio")
+        input_gpio_mode = request.form.get("input_gpio_mode", "high")
         _settings_manager.set_audio_output(audio_output)
+        _settings_manager.set_input_gpio_active_high(input_gpio_mode)
         _settings_manager.set_input_gpio(input_gpio)
-        _gpio_trigger.configure(_settings_manager.get_input_gpio())
+        _gpio_trigger.configure(
+            _settings_manager.get_input_gpio(),
+            _settings_manager.get_input_gpio_active_high(),
+        )
         if _active_playlist:
             playlist = _playlists.get(_active_playlist)
             if playlist:
@@ -296,7 +304,7 @@ def settings() -> Response:
     return render_template(
         "settings.html",
         settings=_settings_manager.settings,
-        available_gpio_pins=AVAILABLE_INPUT_GPIO_PINS,
+        available_gpio_pins=AVAILABLE_INPUT_GPIO_OPTIONS,
     )
 
 

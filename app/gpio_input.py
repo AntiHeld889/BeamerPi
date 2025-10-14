@@ -19,6 +19,7 @@ class GPIOTriggerInput:
         self._pin: Optional[int] = None
         self._lock = threading.Lock()
         self._available = GPIO is not None
+        self._active_high = True
         if self._available:
             GPIO.setwarnings(False)
             GPIO.setmode(GPIO.BCM)
