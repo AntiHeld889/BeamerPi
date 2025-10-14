@@ -8,16 +8,64 @@
 # - Nach Ende: zurück zum Loop, GPIO22 wieder inaktiv
 # - Nach letztem Video: Reihenfolge beginnt erneut bei Video1
 
-import os, time, json, socket, subprocess
+import os, time, json, socket, subprocess, threading, queue
 from pathlib import Path
 from gpiozero import Button, OutputDevice
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+
+CONFIG_PATH = Path(__file__).resolve().parent / "config.json"
+DEFAULT_CONFIG = {
+    "trigger_gpio_input": 27,
+    "button_pull_up": False,
+    "trigger_gpio_output": 26,
+    "trigger_active_high": False,
+    "audio_output": None,
+    "audio_volume": 100,
+}
+
+
+def load_config():
+    config = DEFAULT_CONFIG.copy()
+    if CONFIG_PATH.exists():
+        try:
+            with CONFIG_PATH.open("r", encoding="utf-8") as fh:
+                loaded = json.load(fh)
+            if isinstance(loaded, dict):
+                config.update({k: loaded.get(k, config[k]) for k in config})
+        except (OSError, json.JSONDecodeError):
+            pass
+    return config
+
+
+def ensure_config_exists():
+    if not CONFIG_PATH.exists():
+        try:
+            CONFIG_PATH.write_text(json.dumps(DEFAULT_CONFIG, indent=2), encoding="utf-8")
+        except OSError:
+            pass
+
+
+ensure_config_exists()
+CONFIG = load_config()
 
 # ===================== KONFIG =====================
-GPIO_BUTTON = 27                 # Taster an GND
-BUTTON_PULL_UP = False            # internes Pull-Up aktiv
+GPIO_BUTTON = int(CONFIG.get("trigger_gpio_input", DEFAULT_CONFIG["trigger_gpio_input"]))
+BUTTON_PULL_UP = bool(CONFIG.get("button_pull_up", DEFAULT_CONFIG["button_pull_up"]))
 
-GPIO_TRIGGER_OUT = 26            # Relais / Ausgang
-TRIGGER_ACTIVE_HIGH = False      # LOW-aktiv (z.B. China-Relaismodule)
+GPIO_TRIGGER_OUT = int(CONFIG.get("trigger_gpio_output", DEFAULT_CONFIG["trigger_gpio_output"]))
+TRIGGER_ACTIVE_HIGH = bool(CONFIG.get("trigger_active_high", DEFAULT_CONFIG["trigger_active_high"]))
+
+def _clamp_volume(value):
+    try:
+        vol = int(value)
+    except (TypeError, ValueError):
+        vol = DEFAULT_CONFIG["audio_volume"]
+    return max(0, min(100, vol))
+
+
+AUDIO_OUTPUT = CONFIG.get("audio_output")
+AUDIO_VOLUME = _clamp_volume(CONFIG.get("audio_volume", DEFAULT_CONFIG["audio_volume"]))
 
 LOOP_VIDEO = "/opt/videoplayer/videos/loop.mp4"
 TRIGGER_VIDEOS = [
@@ -46,7 +94,37 @@ TRIGGER_VIDEOS = [
 MPV_SOCKET = "/tmp/mpv-video.sock"
 MPV_LOG    = "/home/pi/mpv.log"
 DEBOUNCE_MS = 0.08
+WEB_TRIGGER_PORT = 8090
 # ==================================================
+
+
+trigger_requests = queue.Queue()
+
+
+class TriggerHTTPServer(HTTPServer):
+    allow_reuse_address = True
+
+
+class TriggerRequestHandler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        if self.path == "/trigger":
+            trigger_requests.put(time.time())
+            self.send_response(204)
+            self.end_headers()
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def log_message(self, format, *args):
+        return
+
+
+def start_trigger_server():
+    server = TriggerHTTPServer(("127.0.0.1", WEB_TRIGGER_PORT), TriggerRequestHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    print(f"Web-Trigger-Server läuft auf http://127.0.0.1:{WEB_TRIGGER_PORT}/trigger")
+    return server
 
 
 def build_mpv_variants():
@@ -62,6 +140,10 @@ def build_mpv_variants():
         f"--input-ipc-server={MPV_SOCKET}",
         "--no-terminal",
     ]
+    if AUDIO_OUTPUT:
+        device = AUDIO_OUTPUT if "/" in AUDIO_OUTPUT else f"pulse/{AUDIO_OUTPUT}"
+        base += ["--ao=pulse", f"--audio-device={device}"]
+    base += [f"--volume={AUDIO_VOLUME}"]
     return [
         base + ["--fs-screen=1"],
         base + ["--fs-screen=0"],
@@ -161,8 +243,19 @@ def main():
     trigger_out = OutputDevice(GPIO_TRIGGER_OUT, active_high=TRIGGER_ACTIVE_HIGH, initial_value=False)
     trigger_out.off()
 
+    trigger_server = None
+    try:
+        trigger_server = start_trigger_server()
+    except OSError as exc:
+        trigger_server = None
+        print(f"Warnung: Web-Trigger-Server konnte nicht gestartet werden: {exc}")
+
     print(f"Button GPIO{GPIO_BUTTON}, pull_up={BUTTON_PULL_UP}")
     print(f"Trigger-Ausgang GPIO{GPIO_TRIGGER_OUT}, active_high={TRIGGER_ACTIVE_HIGH}")
+    if AUDIO_OUTPUT:
+        print(f"Audio-Ausgabe über PulseAudio-Senke '{AUDIO_OUTPUT}', Lautstärke {AUDIO_VOLUME}%")
+    else:
+        print(f"Audio-Ausgabe: Standardgerät, Lautstärke {AUDIO_VOLUME}%")
 
     mpv_loadfile(LOOP_VIDEO, loop=True)
 
@@ -172,17 +265,34 @@ def main():
         while True:
             now = time.time()
 
-            # Button-Handling
-            if btn.is_pressed and press_armed and not playing_trigger:
-                if now - last_edge_time >= DEBOUNCE_MS:
+            web_trigger = False
+            while True:
+                try:
+                    trigger_requests.get_nowait()
+                    web_trigger = True
+                except queue.Empty:
+                    break
+
+            # Button- und Web-Handling
+            if not playing_trigger:
+                if web_trigger:
                     if current_index >= len(TRIGGER_VIDEOS):
                         current_index = 0
-                    print(f"Taster → starte Trigger-Video {current_index+1}/{len(TRIGGER_VIDEOS)}")
+                    print(f"Web-Oberfläche → starte Trigger-Video {current_index+1}/{len(TRIGGER_VIDEOS)}")
                     playing_trigger = True
                     awaiting_trigger_loaded = True
                     mpv_loadfile(TRIGGER_VIDEOS[current_index], loop=False)
-                    press_armed = False
                     last_edge_time = now
+                elif btn.is_pressed and press_armed:
+                    if now - last_edge_time >= DEBOUNCE_MS:
+                        if current_index >= len(TRIGGER_VIDEOS):
+                            current_index = 0
+                        print(f"Taster → starte Trigger-Video {current_index+1}/{len(TRIGGER_VIDEOS)}")
+                        playing_trigger = True
+                        awaiting_trigger_loaded = True
+                        mpv_loadfile(TRIGGER_VIDEOS[current_index], loop=False)
+                        press_armed = False
+                        last_edge_time = now
 
             if not btn.is_pressed and not press_armed:
                 if now - last_edge_time >= DEBOUNCE_MS:
@@ -220,6 +330,12 @@ def main():
         try:
             trigger_out.close()
             btn.close()
+        except Exception:
+            pass
+        try:
+            if trigger_server:
+                trigger_server.shutdown()
+                trigger_server.server_close()
         except Exception:
             pass
         try:
