@@ -8,6 +8,7 @@ from flask import (
     Flask,
     Response,
     flash,
+    has_request_context,
     jsonify,
     redirect,
     render_template,
@@ -19,6 +20,7 @@ from flask import (
 from .settings import AVAILABLE_INPUT_GPIO_PINS, SettingsManager
 from .storage import Playlist, StorageManager
 from .video_player import VideoPlayer
+from .gpio_input import GPIOTriggerInput
 
 VIDEO_DIRECTORY = Path("/opt/videoplayer/videos")
 DATA_DIRECTORY = Path(__file__).resolve().parent / "data"
@@ -34,6 +36,7 @@ _active_index: int = 0
 _state_lock = threading.Lock()
 
 _player = VideoPlayer(VIDEO_DIRECTORY, _settings_manager.get_audio_output)
+_gpio_trigger: Optional[GPIOTriggerInput] = None
 
 
 # Helpers ---------------------------------------------------------------------
@@ -150,9 +153,14 @@ def _trigger_next() -> bool:
     try:
         _player.enqueue_video(video)
     except FileNotFoundError:
-        flash(f"Video {video} konnte nicht gefunden werden.", "error")
+        if has_request_context():
+            flash(f"Video {video} konnte nicht gefunden werden.", "error")
         return False
     return True
+
+
+_gpio_trigger = GPIOTriggerInput(_trigger_next)
+_gpio_trigger.configure(_settings_manager.get_input_gpio())
 
 
 # Routes ----------------------------------------------------------------------
@@ -274,6 +282,7 @@ def settings() -> Response:
         input_gpio = request.form.get("input_gpio")
         _settings_manager.set_audio_output(audio_output)
         _settings_manager.set_input_gpio(input_gpio)
+        _gpio_trigger.configure(_settings_manager.get_input_gpio())
         if _active_playlist:
             playlist = _playlists.get(_active_playlist)
             if playlist:
