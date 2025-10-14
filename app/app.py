@@ -33,7 +33,12 @@ _active_playlist: Optional[str] = None
 _active_index: int = 0
 _state_lock = threading.Lock()
 
-_player = VideoPlayer(VIDEO_DIRECTORY, _settings_manager.get_audio_output)
+_player = VideoPlayer(
+    VIDEO_DIRECTORY,
+    _settings_manager.get_audio_output,
+    _settings_manager.get_trigger_start_webhook,
+    _settings_manager.get_trigger_end_webhook,
+)
 
 
 # Helpers ---------------------------------------------------------------------
@@ -296,7 +301,12 @@ def preview(filename: str) -> str:
 def settings() -> Response:
     if request.method == "POST":
         audio_output = request.form.get("audio_output", "auto")
+        trigger_start_webhook = request.form.get("trigger_start_webhook", "")
+        trigger_end_webhook = request.form.get("trigger_end_webhook", "")
+
         _settings_manager.set_audio_output(audio_output)
+        _settings_manager.set_trigger_start_webhook(trigger_start_webhook)
+        _settings_manager.set_trigger_end_webhook(trigger_end_webhook)
         if _active_playlist:
             playlist = _playlists.get(_active_playlist)
             if playlist:
