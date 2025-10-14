@@ -8,14 +8,18 @@
         <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('preview', filename=node.path) }}" target="_blank">Vorschau</a>
       </li>
     {% else %}
-      <li class="list-group-item">
-        <div class="folder-title">{{ node.path }}/</div>
+      <li class="list-group-item folder collapsed">
+        <div class="folder-header">
+          <span class="folder-toggle folder-title" role="button" tabindex="0" aria-expanded="false">{{ node.path }}/</span>
+        </div>
         {% if node.children %}
-          <ul class="list-group list-group-flush ms-3 mt-2">
+          <ul class="list-group list-group-flush ms-3 mt-2 folder-children">
             {{ render_video_tree(node.children) }}
           </ul>
         {% else %}
-          <p class="text-muted small mb-0">Keine Videos in diesem Ordner.</p>
+          <div class="folder-children ms-3 mt-2">
+            <p class="text-muted small mb-0">Keine Videos in diesem Ordner.</p>
+          </div>
         {% endif %}
       </li>
     {% endif %}
