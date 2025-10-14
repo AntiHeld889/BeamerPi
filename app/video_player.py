@@ -44,6 +44,18 @@ class VideoPlayer:
         self._queue.put(video_path)
         self._wakeup_event.set()
 
+    def get_playback_status(self) -> dict:
+        """Return information about the current playback state."""
+
+        loop_video = self._loop_video
+        current_video = self._current_video
+        return {
+            "loop_video": self._to_relative(loop_video),
+            "current_video": self._to_relative(current_video),
+            "is_loop": bool(current_video) and self._current_is_loop,
+            "is_trigger": self._playing_trigger,
+        }
+
     def stop(self) -> None:
         self._stop_event.set()
         self._wakeup_event.set()
@@ -268,3 +280,12 @@ class VideoPlayer:
         self._stop_mpv()
         self._loop_dirty = True
         self._wakeup_event.set()
+
+    # Utility -----------------------------------------------------------------
+    def _to_relative(self, path: Optional[Path]) -> Optional[str]:
+        if path is None:
+            return None
+        try:
+            return path.relative_to(self.video_dir).as_posix()
+        except ValueError:
+            return str(path)

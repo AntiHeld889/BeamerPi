@@ -53,7 +53,20 @@
                 <p class="mb-1 text-muted"><strong>Verbleibende Videos:</strong> {{ active_progress.remaining_videos }}</p>
               {% endif %}
               {% if active_playlist == name %}
-                <span class="badge bg-success">aktiv</span>
+                <div class="mt-2 d-flex flex-column align-items-start gap-1">
+                  <span class="badge bg-success">aktiv</span>
+                  {% if playback_status.current_video %}
+                    {% if playback_status.is_loop %}
+                      <span class="status-indicator text-success"><span class="indicator-dot bg-success"></span>Loop-Video läuft</span>
+                    {% elif playback_status.is_trigger %}
+                      <span class="status-indicator text-danger"><span class="indicator-dot bg-danger"></span>Trigger-Video läuft</span>
+                    {% else %}
+                      <span class="status-indicator text-muted"><span class="indicator-dot bg-secondary"></span>Bereit</span>
+                    {% endif %}
+                  {% elif playback_status.loop_video %}
+                    <span class="status-indicator text-muted"><span class="indicator-dot bg-secondary"></span>Loop-Video bereit</span>
+                  {% endif %}
+                </div>
               {% endif %}
             </div>
             <div class="text-end">
