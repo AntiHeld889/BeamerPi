@@ -36,11 +36,50 @@ Dieses Projekt stellt einen einfachen Videoplayer für den Raspberry Pi (Debian 
 4. **Anwendung starten**
 
    ```bash
-   export FLASK_APP=app.app:create_app
-   flask run --host=0.0.0.0 --port=5000
+   flask --app app.app:create_app run --host=0.0.0.0 --port=5000
    ```
 
-   Für einen Dienst im Hintergrund kann ein Systemd-Service eingerichtet werden.
+## Betrieb als systemd-Service
+
+Um den Videoplayer dauerhaft im Hintergrund laufen zu lassen, kann ein systemd-Dienst
+eingesetzt werden. Dadurch wird der Server beim Systemstart automatisch geladen und bei
+Fehlern neu gestartet.
+
+1. **Service-Datei erstellen**
+
+   Erstelle z. B. `/etc/systemd/system/beamerpi.service` (Root-Rechte erforderlich) mit folgendem Inhalt:
+
+   ```ini
+   [Unit]
+   Description=BeamerPi Videoplayer
+   After=network-online.target
+   Wants=network-online.target
+
+   [Service]
+   Type=simple
+   User=pi
+   Group=pi
+   WorkingDirectory=/opt/videoplayer/app
+   ExecStart=/usr/bin/python3 -m flask --app app.app:create_app run --host=0.0.0.0 --port=5000
+   Restart=on-failure
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+
+   Passe `User`, `Group`, `WorkingDirectory` und den Pfad zur Python-Installation an deine
+   Umgebung an. In einer virtuellen Umgebung ersetzt du `/usr/bin/python3` durch den Pfad
+   zum Python-Interpreter aus dem venv (z. B. `/opt/videoplayer/.venv/bin/python`).
+
+2. **Dienst aktivieren und starten**
+
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now beamerpi.service
+   ```
+
+   Den Status des Dienstes kannst du jederzeit mit `sudo systemctl status beamerpi.service`
+   prüfen. Log-Ausgaben erscheinen über `journalctl -u beamerpi.service`.
 
 ## Nutzung
 
