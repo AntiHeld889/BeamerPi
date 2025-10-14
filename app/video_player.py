@@ -244,11 +244,23 @@ class VideoPlayer:
     def _handle_event(self, event: dict) -> None:
         name = event.get("event")
         if name == "end-file":
-            self._playing_trigger = False
-            self._current_video = None
-            self._current_is_loop = False
-            self._loop_dirty = True
-            self._wakeup_event.set()
+            reason = event.get("reason")
+            if isinstance(reason, str):
+                reason = {
+                    "eof": 0,
+                    "stop": 1,
+                    "quit": 2,
+                    "restart": 3,
+                    "replace": 4,
+                    "error": 5,
+                }.get(reason, reason)
+
+            if reason in (None, 0):
+                self._playing_trigger = False
+                self._current_video = None
+                self._current_is_loop = False
+                self._loop_dirty = True
+                self._wakeup_event.set()
         elif name == "property-change":
             pass
 
