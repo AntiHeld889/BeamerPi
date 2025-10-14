@@ -8,16 +8,25 @@ import threading
 import time
 from pathlib import Path
 from queue import Empty, Queue
-from typing import Optional
+from typing import Callable, Optional
+from urllib import error, request
 
 
 class VideoPlayer:
     """Controls background playback using mpv."""
 
-    def __init__(self, video_dir: Path, audio_device_provider) -> None:
+    def __init__(
+        self,
+        video_dir: Path,
+        audio_device_provider,
+        trigger_start_webhook_provider: Callable[[], str],
+        trigger_end_webhook_provider: Callable[[], str],
+    ) -> None:
         self.video_dir = video_dir
         self.video_dir.mkdir(parents=True, exist_ok=True)
         self._audio_device_provider = audio_device_provider
+        self._trigger_start_webhook_provider = trigger_start_webhook_provider
+        self._trigger_end_webhook_provider = trigger_end_webhook_provider
         self._queue: "Queue[Path]" = Queue()
         self._loop_video: Optional[Path] = None
         self._mpv_process: Optional[subprocess.Popen] = None
@@ -100,6 +109,7 @@ class VideoPlayer:
             self._current_video = path
             self._current_is_loop = False
         self._load_file(path, loop=False)
+        self._notify_trigger_webhook("start", path)
 
     def _ensure_loop_state(self) -> bool:
         if not self._ensure_mpv_running():
@@ -276,11 +286,15 @@ class VideoPlayer:
 
             if reason in (None, 0):
                 with self._state_lock:
+                    was_trigger = self._playing_trigger
+                    finished_video = self._current_video
                     self._playing_trigger = False
                     self._current_video = None
                     self._current_is_loop = False
                     self._loop_dirty = True
                 self._wakeup_event.set()
+                if was_trigger and finished_video is not None:
+                    self._notify_trigger_webhook("end", finished_video)
         elif name == "property-change":
             pass
 
@@ -297,14 +311,6 @@ class VideoPlayer:
             playing_trigger = self._playing_trigger
             loop_video = self._loop_video
 
-        def _relative(path: Optional[Path]) -> Optional[str]:
-            if path is None:
-                return None
-            try:
-                return path.relative_to(self.video_dir).as_posix()
-            except ValueError:
-                return str(path)
-
         mode = "idle"
         if playing_trigger:
             mode = "trigger"
@@ -313,6 +319,43 @@ class VideoPlayer:
 
         return {
             "mode": mode,
-            "current_video": _relative(current_video),
-            "loop_video": _relative(loop_video),
+            "current_video": self._relative_path(current_video),
+            "loop_video": self._relative_path(loop_video),
         }
+
+    def _relative_path(self, path: Optional[Path]) -> Optional[str]:
+        if path is None:
+            return None
+        try:
+            return path.relative_to(self.video_dir).as_posix()
+        except ValueError:
+            return str(path)
+
+    def _notify_trigger_webhook(self, event: str, video: Path) -> None:
+        if event == "start":
+            provider = self._trigger_start_webhook_provider
+        else:
+            provider = self._trigger_end_webhook_provider
+
+        url = provider()
+        if not url:
+            return
+
+        payload = {
+            "event": event,
+            "video": self._relative_path(video),
+            "timestamp": time.time(),
+        }
+
+        threading.Thread(
+            target=self._send_webhook_request, args=(url, payload), daemon=True
+        ).start()
+
+    def _send_webhook_request(self, url: str, payload: dict) -> None:
+        data = json.dumps(payload).encode("utf-8")
+        req = request.Request(url, data=data, headers={"Content-Type": "application/json"})
+        try:
+            with request.urlopen(req, timeout=5):
+                pass
+        except error.URLError as exc:
+            print(f"Webhook request to {url} failed: {exc}")

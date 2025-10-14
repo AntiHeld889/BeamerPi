@@ -8,6 +8,16 @@
     <input type="text" class="form-control" id="audio_output" name="audio_output" value="{{ settings.audio_output }}" placeholder="z.B. alsa/plughw:0,0 oder hdmi">
     <div class="form-text">Leer lassen für automatische Auswahl durch mpv.</div>
   </div>
+  <div class="mb-3">
+    <label for="trigger_start_webhook" class="form-label">Webhook-URL für Trigger-Start</label>
+    <input type="url" class="form-control" id="trigger_start_webhook" name="trigger_start_webhook" value="{{ settings.trigger_start_webhook_url }}" placeholder="https://example.com/webhook/start">
+    <div class="form-text">Diese URL wird aufgerufen, wenn ein Trigger-Video gestartet wird.</div>
+  </div>
+  <div class="mb-3">
+    <label for="trigger_end_webhook" class="form-label">Webhook-URL für Trigger-Ende</label>
+    <input type="url" class="form-control" id="trigger_end_webhook" name="trigger_end_webhook" value="{{ settings.trigger_end_webhook_url }}" placeholder="https://example.com/webhook/end">
+    <div class="form-text">Diese URL wird aufgerufen, wenn ein Trigger-Video beendet ist.</div>
+  </div>
   <button type="submit" class="btn btn-primary">Speichern</button>
   <a href="{{ url_for('index') }}" class="btn btn-secondary">Zurück</a>
 </form>
