@@ -1,5 +1,27 @@
 {% extends "base.html" %}
 
+{% macro render_video_tree(nodes) %}
+  {% for node in nodes %}
+    {% if node.is_file %}
+      <li class="list-group-item d-flex justify-content-between align-items-center">
+        <span>{{ node.name }}</span>
+        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('preview', filename=node.path) }}" target="_blank">Vorschau</a>
+      </li>
+    {% else %}
+      <li class="list-group-item">
+        <div class="folder-title">{{ node.path }}/</div>
+        {% if node.children %}
+          <ul class="list-group list-group-flush ms-3 mt-2">
+            {{ render_video_tree(node.children) }}
+          </ul>
+        {% else %}
+          <p class="text-muted small mb-0">Keine Videos in diesem Ordner.</p>
+        {% endif %}
+      </li>
+    {% endif %}
+  {% endfor %}
+{% endmacro %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <div>
@@ -41,16 +63,15 @@
   </div>
   <div class="col-md-6">
     <h2>Videos im Ordner</h2>
-    <ul class="list-group video-list">
-      {% for name, path in videos.items() %}
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-          <span>{{ name }}</span>
-          <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('preview', filename=name) }}" target="_blank">Vorschau</a>
-        </li>
-      {% else %}
-        <li class="list-group-item">Keine Videos gefunden (Pfad: {{ video_directory }}).</li>
-      {% endfor %}
-    </ul>
+    {% if video_tree %}
+      <ul class="list-group video-list video-tree">
+        {{ render_video_tree(video_tree) }}
+      </ul>
+    {% else %}
+      <div class="alert alert-secondary" role="alert">
+        Keine Videos gefunden (Pfad: {{ video_directory }}).
+      </div>
+    {% endif %}
   </div>
 </div>
 {% endblock %}
