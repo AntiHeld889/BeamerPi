@@ -12,19 +12,11 @@
     <label for="input_gpio" class="form-label">Trigger GPIO</label>
     <select class="form-select" id="input_gpio" name="input_gpio">
       <option value="" {% if not settings.input_gpio %}selected{% endif %}>Deaktiviert</option>
-      {% for option in available_gpio_pins %}
-      <option value="{{ option.bcm }}" {% if settings.input_gpio == option.bcm %}selected{% endif %}>{{ option.label }}</option>
+      {% for pin in available_gpio_pins %}
+      <option value="{{ pin }}" {% if settings.input_gpio == pin %}selected{% endif %}>GPIO {{ pin }}</option>
       {% endfor %}
     </select>
-    <div class="form-text">Wähle den GPIO-Pin (BCM-Nummer, Pin-Nummer in Klammern), der als Trigger-Eingang genutzt werden soll.</div>
-  </div>
-  <div class="mb-3">
-    <label for="input_gpio_mode" class="form-label">Trigger-Verhalten</label>
-    <select class="form-select" id="input_gpio_mode" name="input_gpio_mode">
-      <option value="high" {% if settings.input_gpio_active_high %}selected{% endif %}>Schließt gegen 3,3V (aktiv bei HIGH)</option>
-      <option value="low" {% if not settings.input_gpio_active_high %}selected{% endif %}>Schließt gegen GND (aktiv bei LOW)</option>
-    </select>
-    <div class="form-text">Passe an, ob dein Taster/Sensor auf 3,3V oder GND zieht.</div>
+    <div class="form-text">Wähle den GPIO-Pin, der als Trigger-Eingang genutzt werden soll.</div>
   </div>
   <button type="submit" class="btn btn-primary">Speichern</button>
   <a href="{{ url_for('index') }}" class="btn btn-secondary">Zurück</a>

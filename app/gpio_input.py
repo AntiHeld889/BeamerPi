@@ -27,35 +27,24 @@ class GPIOTriggerInput:
         else:
             print("RPi.GPIO konnte nicht geladen werden – GPIO-Trigger ist deaktiviert.")
 
-    def configure(self, pin: Optional[int], active_high: bool = True) -> None:
+    def configure(self, pin: Optional[int]) -> None:
         """Configure the trigger pin. Passing ``None`` disables the trigger."""
 
-        trigger_when_configured = False
         with self._lock:
-            if pin == self._pin and active_high == self._active_high:
+            if pin == self._pin:
                 return
             self._cleanup_locked()
-            self._active_high = active_high
             if not self._available or pin is None:
                 self._pin = None
                 return
             try:
-                pull = GPIO.PUD_DOWN if active_high else GPIO.PUD_UP
-                GPIO.setup(pin, GPIO.IN, pull_up_down=pull)
-                GPIO.add_event_detect(pin, GPIO.BOTH, callback=self._handle_event, bouncetime=200)
+                GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+                GPIO.add_event_detect(pin, GPIO.RISING, callback=self._handle_event, bouncetime=200)
                 self._pin = pin
-                level = "HIGH" if active_high else "LOW"
-                print(f"GPIO-Trigger auf Pin {pin} aktiviert (aktiv bei {level}).")
-                desired_state = GPIO.HIGH if active_high else GPIO.LOW
-                if GPIO.input(pin) == desired_state:
-                    trigger_when_configured = True
+                print(f"GPIO-Trigger auf Pin {pin} aktiviert.")
             except Exception as exc:
                 print(f"GPIO-Pin {pin} konnte nicht konfiguriert werden: {exc}")
                 self._pin = None
-                return
-        if trigger_when_configured and pin is not None:
-            # Trigger once if the pin is already active when configuration completes.
-            self._handle_event(pin)
 
     def close(self) -> None:
         with self._lock:
@@ -90,8 +79,7 @@ class GPIOTriggerInput:
         if not self._available:
             return
         try:
-            desired_state = GPIO.HIGH if self._active_high else GPIO.LOW
-            if GPIO.input(pin) == desired_state:
+            if GPIO.input(pin) == GPIO.HIGH:
                 self._callback()
         except Exception as exc:
             print(f"GPIO-Trigger konnte nicht ausgelöst werden: {exc}")
