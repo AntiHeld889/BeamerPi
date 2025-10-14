@@ -159,11 +159,13 @@ def _trigger_next() -> bool:
 @app.route("/")
 def index() -> str:
     videos = _get_videos()
+    playback_status = _player.get_playback_status()
     return render_template(
         "index.html",
         playlists=_playlists,
         active_playlist=_active_playlist,
         active_progress=_get_active_progress(),
+        playback_status=playback_status,
         videos=videos,
         video_tree=_build_video_tree(videos),
         settings=_settings_manager.settings,
