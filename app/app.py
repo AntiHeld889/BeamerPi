@@ -38,11 +38,13 @@ _player = VideoPlayer(VIDEO_DIRECTORY, _settings_manager.get_audio_output)
 
 # Helpers ---------------------------------------------------------------------
 def _get_videos() -> Dict[str, Path]:
-    videos = {}
+    videos: Dict[str, Path] = {}
     if VIDEO_DIRECTORY.exists():
-        for entry in sorted(VIDEO_DIRECTORY.iterdir()):
+        base = VIDEO_DIRECTORY.resolve()
+        for entry in sorted(base.rglob("*")):
             if entry.is_file():
-                videos[entry.name] = entry
+                relative_name = entry.relative_to(base).as_posix()
+                videos[relative_name] = entry
     return videos
 
 
