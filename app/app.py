@@ -164,6 +164,7 @@ def index() -> str:
         playlists=_playlists,
         active_playlist=_active_playlist,
         active_progress=_get_active_progress(),
+        player_status=_player.get_status(),
         videos=videos,
         video_tree=_build_video_tree(videos),
         settings=_settings_manager.settings,
