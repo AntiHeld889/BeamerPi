@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Einstellungen</h2>
+<form method="post" class="mt-3">
+  <div class="mb-3">
+    <label for="audio_output" class="form-label">Audioausgabe (mpv Audio Device)</label>
+    <input type="text" class="form-control" id="audio_output" name="audio_output" value="{{ settings.audio_output }}" placeholder="z.B. alsa/plughw:0,0 oder hdmi">
+    <div class="form-text">Leer lassen für automatische Auswahl durch mpv.</div>
+  </div>
+  <button type="submit" class="btn btn-primary">Speichern</button>
+  <a href="{{ url_for('index') }}" class="btn btn-secondary">Zurück</a>
+</form>
+{% endblock %}
