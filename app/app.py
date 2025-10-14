@@ -16,7 +16,7 @@ from flask import (
     url_for,
 )
 
-from .settings import SettingsManager
+from .settings import AVAILABLE_INPUT_GPIO_PINS, SettingsManager
 from .storage import Playlist, StorageManager
 from .video_player import VideoPlayer
 
@@ -271,7 +271,9 @@ def preview(filename: str) -> str:
 def settings() -> Response:
     if request.method == "POST":
         audio_output = request.form.get("audio_output", "auto")
+        input_gpio = request.form.get("input_gpio")
         _settings_manager.set_audio_output(audio_output)
+        _settings_manager.set_input_gpio(input_gpio)
         if _active_playlist:
             playlist = _playlists.get(_active_playlist)
             if playlist:
@@ -282,7 +284,11 @@ def settings() -> Response:
                     _player.set_loop_video(None)
         flash("Einstellungen gespeichert.", "success")
         return redirect(url_for("settings"))
-    return render_template("settings.html", settings=_settings_manager.settings)
+    return render_template(
+        "settings.html",
+        settings=_settings_manager.settings,
+        available_gpio_pins=AVAILABLE_INPUT_GPIO_PINS,
+    )
 
 
 @app.context_processor

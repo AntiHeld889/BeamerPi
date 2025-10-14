@@ -8,6 +8,16 @@
     <input type="text" class="form-control" id="audio_output" name="audio_output" value="{{ settings.audio_output }}" placeholder="z.B. alsa/plughw:0,0 oder hdmi">
     <div class="form-text">Leer lassen für automatische Auswahl durch mpv.</div>
   </div>
+  <div class="mb-3">
+    <label for="input_gpio" class="form-label">Trigger GPIO</label>
+    <select class="form-select" id="input_gpio" name="input_gpio">
+      <option value="" {% if not settings.input_gpio %}selected{% endif %}>Deaktiviert</option>
+      {% for pin in available_gpio_pins %}
+      <option value="{{ pin }}" {% if settings.input_gpio == pin %}selected{% endif %}>GPIO {{ pin }}</option>
+      {% endfor %}
+    </select>
+    <div class="form-text">Wähle den GPIO-Pin, der als Trigger-Eingang genutzt werden soll.</div>
+  </div>
   <button type="submit" class="btn btn-primary">Speichern</button>
   <a href="{{ url_for('index') }}" class="btn btn-secondary">Zurück</a>
 </form>
