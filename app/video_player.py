@@ -22,7 +22,7 @@ class VideoPlayer:
         trigger_start_webhook_provider: Callable[[], str],
         trigger_end_webhook_provider: Callable[[], str],
     ) -> None:
-        self.video_dir = video_dir
+        self.video_dir = video_dir.expanduser()
         self.video_dir.mkdir(parents=True, exist_ok=True)
         self._audio_device_provider = audio_device_provider
         self._trigger_start_webhook_provider = trigger_start_webhook_provider
@@ -44,6 +44,20 @@ class VideoPlayer:
         self._worker.start()
 
     # Public API ---------------------------------------------------------------
+    def set_video_directory(self, video_dir: Path) -> None:
+        new_directory = video_dir.expanduser()
+        new_directory.mkdir(parents=True, exist_ok=True)
+        with self._state_lock:
+            self.video_dir = new_directory
+            self._loop_video = None
+            self._loop_dirty = True
+        while True:
+            try:
+                self._queue.get_nowait()
+            except Empty:
+                break
+        self._wakeup_event.set()
+
     def set_loop_video(self, filename: Optional[str]) -> None:
         loop_video = self._resolve_video(filename) if filename else None
         with self._state_lock:

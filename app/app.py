@@ -15,12 +15,12 @@ from flask import (
     send_from_directory,
     url_for,
 )
+from werkzeug.utils import secure_filename
 
 from .settings import SettingsManager
 from .storage import Playlist, StorageManager
 from .video_player import VideoPlayer
 
-VIDEO_DIRECTORY = Path("/opt/videoplayer/videos")
 DATA_DIRECTORY = Path(__file__).resolve().parent / "data"
 
 app = Flask(__name__)
@@ -34,7 +34,7 @@ _active_index: int = 0
 _state_lock = threading.Lock()
 
 _player = VideoPlayer(
-    VIDEO_DIRECTORY,
+    _settings_manager.get_video_directory(),
     _settings_manager.get_audio_output,
     _settings_manager.get_trigger_start_webhook,
     _settings_manager.get_trigger_end_webhook,
@@ -42,10 +42,15 @@ _player = VideoPlayer(
 
 
 # Helpers ---------------------------------------------------------------------
+def _get_video_directory() -> Path:
+    return _settings_manager.get_video_directory()
+
+
 def _get_videos() -> Dict[str, Path]:
     videos: Dict[str, Path] = {}
-    if VIDEO_DIRECTORY.exists():
-        base = VIDEO_DIRECTORY.resolve()
+    base = _get_video_directory()
+    if base.exists():
+        base = base.resolve()
         for entry in sorted(base.rglob("*")):
             if entry.is_file():
                 relative_name = entry.relative_to(base).as_posix()
@@ -280,7 +285,8 @@ def webhook(name: str) -> Response:
 
 @app.route("/videos/<path:filename>")
 def serve_video(filename: str):
-    return send_from_directory(VIDEO_DIRECTORY, filename, as_attachment=False)
+    video_directory = _get_video_directory()
+    return send_from_directory(video_directory, filename, as_attachment=False)
 
 
 @app.route("/preview/<path:filename>")
@@ -290,31 +296,106 @@ def preview(filename: str) -> str:
 
 @app.route("/settings", methods=["GET", "POST"])
 def settings() -> Response:
+    video_directory = _get_video_directory()
     if request.method == "POST":
-        audio_output = request.form.get("audio_output", "auto")
-        trigger_start_webhook = request.form.get("trigger_start_webhook", "")
-        trigger_end_webhook = request.form.get("trigger_end_webhook", "")
+        action = request.form.get("action", "update_settings")
+        if action == "update_settings":
+            audio_output = request.form.get("audio_output", "auto")
+            trigger_start_webhook = request.form.get("trigger_start_webhook", "")
+            trigger_end_webhook = request.form.get("trigger_end_webhook", "")
+            video_directory_input = request.form.get("video_directory", "")
 
-        _settings_manager.set_audio_output(audio_output)
-        _settings_manager.set_trigger_start_webhook(trigger_start_webhook)
-        _settings_manager.set_trigger_end_webhook(trigger_end_webhook)
-        if _active_playlist:
-            playlist = _playlists.get(_active_playlist)
-            if playlist:
+            _settings_manager.set_audio_output(audio_output)
+            _settings_manager.set_trigger_start_webhook(trigger_start_webhook)
+            _settings_manager.set_trigger_end_webhook(trigger_end_webhook)
+
+            save_success = True
+            try:
+                updated_directory = _settings_manager.set_video_directory(video_directory_input)
+            except ValueError as exc:
+                flash(str(exc), "error")
+                save_success = False
+                updated_directory = None
+            else:
+                _player.set_video_directory(updated_directory)
+                video_directory = updated_directory
+
+            if _active_playlist:
+                playlist = _playlists.get(_active_playlist)
+                if playlist:
+                    try:
+                        _player.set_loop_video(playlist.loop_video)
+                    except FileNotFoundError:
+                        flash("Loop-Video wurde nicht gefunden.", "error")
+                        _player.set_loop_video(None)
+
+            if save_success:
+                flash("Einstellungen gespeichert.", "success")
+            return redirect(url_for("settings"))
+
+        if action == "create_folder":
+            folder_path = request.form.get("folder_path", "").strip()
+            if not folder_path:
+                flash("Bitte einen Ordnernamen angeben.", "error")
+            else:
+                target_directory = (video_directory / folder_path).resolve(strict=False)
+                base_directory = video_directory.resolve(strict=False)
+                if base_directory == target_directory or base_directory in target_directory.parents:
+                    try:
+                        target_directory.mkdir(parents=True, exist_ok=True)
+                    except OSError as exc:
+                        flash(f"Ordner konnte nicht erstellt werden: {exc}", "error")
+                    else:
+                        flash("Ordner wurde erstellt.", "success")
+                else:
+                    flash("Der Ordnerpfad muss innerhalb des Videoverzeichnisses liegen.", "error")
+            return redirect(url_for("settings"))
+
+        if action == "upload_videos":
+            upload_subdirectory = request.form.get("upload_subdirectory", "").strip()
+            files = request.files.getlist("video_files")
+
+            target_directory = video_directory
+            if upload_subdirectory:
+                target_directory = (video_directory / upload_subdirectory).resolve(strict=False)
+            else:
+                target_directory = target_directory.resolve(strict=False)
+
+            base_directory = video_directory.resolve(strict=False)
+            if base_directory == target_directory or base_directory in target_directory.parents:
                 try:
-                    _player.set_loop_video(playlist.loop_video)
-                except FileNotFoundError:
-                    flash("Loop-Video wurde nicht gefunden.", "error")
-                    _player.set_loop_video(None)
-        flash("Einstellungen gespeichert.", "success")
-        return redirect(url_for("settings"))
-    return render_template("settings.html", settings=_settings_manager.settings)
+                    target_directory.mkdir(parents=True, exist_ok=True)
+                except OSError as exc:
+                    flash(f"Zielordner konnte nicht erstellt werden: {exc}", "error")
+                else:
+                    saved_files = 0
+                    for file in files:
+                        if not file or not file.filename:
+                            continue
+                        filename = secure_filename(file.filename)
+                        if not filename:
+                            continue
+                        file.save(target_directory / filename)
+                        saved_files += 1
+                    if saved_files:
+                        flash(f"{saved_files} Datei(en) hochgeladen.", "success")
+                    else:
+                        flash("Keine gültigen Videodateien ausgewählt.", "error")
+            else:
+                flash("Der Zielordner muss innerhalb des Videoverzeichnisses liegen.", "error")
+            return redirect(url_for("settings"))
+
+    return render_template(
+        "settings.html",
+        settings=_settings_manager.settings,
+        video_directory=video_directory,
+    )
 
 
 @app.context_processor
 def inject_globals():
     return {
-        "video_directory": VIDEO_DIRECTORY,
+        "video_directory": _get_video_directory(),
     }
 
 
