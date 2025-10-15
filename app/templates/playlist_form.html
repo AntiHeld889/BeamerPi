@@ -22,6 +22,7 @@
         data-video-entry
         data-video-path="{{ node.path }}"
         data-video-name="{{ node.name }}"
+        data-video-src="{{ url_for('serve_video', filename=node.path) }}"
       >
         <div class="d-flex align-items-center flex-grow-1 gap-2">
           <input
@@ -34,12 +35,13 @@
           >
           <label class="flex-grow-1 mb-0" for="{{ input_id }}">{{ node.name }}</label>
         </div>
-        <a
-          href="{{ url_for('preview', filename=node.path) }}"
-          target="_blank"
+        <button
+          type="button"
           class="btn btn-sm btn-outline-secondary"
-          data-preview-link
-        >Vorschau</a>
+          data-preview-trigger
+          data-video-name="{{ node.name }}"
+          data-video-src="{{ url_for('serve_video', filename=node.path) }}"
+        >Vorschau</button>
       </li>
     {% else %}
       <li class="list-group-item folder collapsed" data-folder>
@@ -111,6 +113,28 @@
   <button type="submit" class="btn btn-primary">Speichern</button>
   <a href="{{ url_for('index') }}" class="btn btn-secondary">Abbrechen</a>
 </form>
+<div
+  class="video-preview-backdrop d-none"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="video-preview-title"
+  data-preview-modal
+>
+  <div class="video-preview-dialog">
+    <div class="video-preview-header">
+      <h3 class="h5 mb-0" id="video-preview-title" data-preview-title>Vorschau</h3>
+      <button
+        type="button"
+        class="btn-close btn-close-white"
+        aria-label="Schließen"
+        data-preview-close
+      ></button>
+    </div>
+    <div class="video-preview-body">
+      <video controls autoplay playsinline data-preview-video></video>
+    </div>
+  </div>
+</div>
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.querySelector('[data-video-search-input]');
@@ -121,13 +145,82 @@
 
     const fileEntries = Array.from(document.querySelectorAll('[data-video-entry]')).map((entry) => {
       const checkbox = entry.querySelector('input[name="videos"]');
-      const previewLink = entry.querySelector('[data-preview-link]');
       return {
         element: entry,
         checkbox,
-        previewHref: previewLink ? previewLink.getAttribute('href') : null,
         path: entry.dataset.videoPath || '',
+        name: entry.dataset.videoName || entry.dataset.videoPath || '',
+        previewSrc: entry.dataset.videoSrc || '',
       };
+    });
+
+    const previewModal = document.querySelector('[data-preview-modal]');
+    const previewVideo = previewModal ? previewModal.querySelector('[data-preview-video]') : null;
+    const previewTitle = previewModal ? previewModal.querySelector('[data-preview-title]') : null;
+    const previewCloseButtons = previewModal ? previewModal.querySelectorAll('[data-preview-close]') : [];
+
+    const isPreviewOpen = () => previewModal && !previewModal.classList.contains('d-none');
+
+    const closePreview = () => {
+      if (!previewModal) {
+        return;
+      }
+      if (previewVideo) {
+        previewVideo.pause();
+        previewVideo.removeAttribute('src');
+        previewVideo.load();
+      }
+      previewModal.classList.add('d-none');
+      document.body.classList.remove('overflow-hidden');
+    };
+
+    const openPreview = (videoName, videoSrc) => {
+      if (!previewModal || !previewVideo || !videoSrc) {
+        return;
+      }
+      if (previewTitle) {
+        const title = videoName ? `Vorschau: ${videoName}` : 'Vorschau';
+        previewTitle.textContent = title;
+      }
+      previewVideo.src = videoSrc;
+      previewVideo.load();
+      previewModal.classList.remove('d-none');
+      document.body.classList.add('overflow-hidden');
+      const playPromise = previewVideo.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => {});
+      }
+    };
+
+    previewCloseButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        closePreview();
+      });
+    });
+
+    if (previewModal) {
+      previewModal.addEventListener('click', (event) => {
+        if (event.target === previewModal) {
+          closePreview();
+        }
+      });
+    }
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && isPreviewOpen()) {
+        closePreview();
+      }
+    });
+
+    document.addEventListener('click', (event) => {
+      const trigger = event.target instanceof HTMLElement ? event.target.closest('[data-preview-trigger]') : null;
+      if (!trigger) {
+        return;
+      }
+      event.preventDefault();
+      const videoName = trigger.dataset.videoName || '';
+      const videoSrc = trigger.dataset.videoSrc || '';
+      openPreview(videoName, videoSrc);
     });
 
     if (!searchInput || !resultsWrapper || !resultsList) {
@@ -184,13 +277,15 @@
       const actions = document.createElement('div');
       actions.className = 'd-flex align-items-center gap-2';
 
-      if (entry.previewHref) {
-        const previewLink = document.createElement('a');
-        previewLink.className = 'btn btn-sm btn-outline-secondary';
-        previewLink.href = entry.previewHref;
-        previewLink.target = '_blank';
-        previewLink.textContent = 'Vorschau';
-        actions.append(previewLink);
+      if (entry.previewSrc) {
+        const previewButton = document.createElement('button');
+        previewButton.type = 'button';
+        previewButton.className = 'btn btn-sm btn-outline-secondary';
+        previewButton.textContent = 'Vorschau';
+        previewButton.dataset.previewTrigger = 'true';
+        previewButton.dataset.videoName = entry.name || entry.path;
+        previewButton.dataset.videoSrc = entry.previewSrc;
+        actions.append(previewButton);
       }
 
       const showButton = document.createElement('button');
