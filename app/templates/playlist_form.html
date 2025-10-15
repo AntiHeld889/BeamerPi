@@ -76,10 +76,17 @@
     }
   }
 
+  .playlist-editor-card {
+    display: flex;
+    flex-direction: column;
+  }
+
   .playlist-editor-card .card-body {
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    flex: 1 1 auto;
+    min-height: 0;
   }
 
   .playlist-editor-tips {
@@ -100,7 +107,8 @@
   }
 
   [data-selected-videos-list] {
-    max-height: 45vh;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
   }
 
