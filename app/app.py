@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
@@ -47,7 +48,13 @@ ALLOWED_VIDEO_EXTENSIONS: Set[str] = {
 }
 
 _video_cache_lock = threading.Lock()
-_video_cache: Dict[str, Any] = {"directory": None, "videos": None}
+_video_cache: Dict[str, Any] = {
+    "directory": None,
+    "videos": None,
+    "mtime": None,
+    "timestamp": 0.0,
+}
+_VIDEO_CACHE_TTL_SECONDS = 5.0
 
 _player = VideoPlayer(
     _settings_manager.get_video_directory(),
@@ -65,11 +72,24 @@ def _get_video_directory() -> Path:
 def _get_videos() -> Dict[str, Path]:
     base = _get_video_directory()
     resolved_base = base.resolve(strict=False)
+    now = time.monotonic()
+
+    try:
+        current_mtime = resolved_base.stat().st_mtime
+    except FileNotFoundError:
+        current_mtime = None
 
     with _video_cache_lock:
         cached_directory = _video_cache.get("directory")
         cached_videos = _video_cache.get("videos")
-        if cached_directory == resolved_base and cached_videos is not None:
+        cached_mtime = _video_cache.get("mtime")
+        cached_timestamp = _video_cache.get("timestamp", 0.0)
+        if (
+            cached_directory == resolved_base
+            and cached_videos is not None
+            and cached_mtime == current_mtime
+            and now - cached_timestamp <= _VIDEO_CACHE_TTL_SECONDS
+        ):
             return dict(cached_videos)
 
     videos: Dict[str, Path] = {}
@@ -82,6 +102,8 @@ def _get_videos() -> Dict[str, Path]:
     with _video_cache_lock:
         _video_cache["directory"] = resolved_base
         _video_cache["videos"] = dict(videos)
+        _video_cache["mtime"] = current_mtime
+        _video_cache["timestamp"] = now
 
     return videos
 
@@ -90,6 +112,8 @@ def _invalidate_video_cache() -> None:
     with _video_cache_lock:
         _video_cache["directory"] = None
         _video_cache["videos"] = None
+        _video_cache["mtime"] = None
+        _video_cache["timestamp"] = 0.0
 
 
 def _build_video_tree(videos: Dict[str, Path]) -> List[Dict[str, Any]]:
