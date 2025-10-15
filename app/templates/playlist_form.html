@@ -79,34 +79,10 @@
   </div>
   <div class="mb-3">
     <label class="form-label">Playlist Videos</label>
-    <div class="mb-3">
-      <div class="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center gap-2">
-        <div class="flex-grow-1">
-          <input
-            type="search"
-            class="form-control form-control-sm"
-            placeholder="Videos durchsuchen"
-            aria-label="Videos durchsuchen"
-            data-video-search-input
-          >
-        </div>
-        <div class="d-flex gap-2">
-          <button type="button" class="btn btn-outline-secondary btn-sm" data-video-search-clear>Zurücksetzen</button>
-        </div>
-      </div>
-      <div class="form-text">Sucht nach Dateien im aktuellen Videoordner. Die Auswahl bleibt beim Suchen erhalten.</div>
-    </div>
-    <div class="mb-3 d-none" data-video-search-results>
-      <h3 class="h6 text-uppercase text-muted">Suchergebnisse</h3>
-      <div class="alert alert-warning d-none" role="alert" data-video-search-no-results>
-        Keine Videos gefunden, die den Suchbegriff enthalten.
-      </div>
-      <ul class="list-group video-list" data-video-search-results-list></ul>
-    </div>
     {% if video_tree %}
       <div class="row g-3" data-playlist-editor>
         <div class="col-12">
-          <div class="border rounded p-3 d-flex flex-column">
+          <div class="border rounded p-3 d-flex flex-column gap-3">
             <div class="d-flex align-items-center justify-content-between mb-3">
               <h3 class="h6 text-uppercase text-muted mb-0">Ausgewählte Videos</h3>
               <span class="badge text-bg-secondary" data-selected-videos-count>0</span>
@@ -115,6 +91,30 @@
               Aktuell sind keine Videos zur Playlist hinzugefügt.
             </p>
             <ul class="list-group mt-2 flex-grow-1 overflow-auto" data-selected-videos-list></ul>
+            <div>
+              <div class="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center gap-2">
+                <div class="flex-grow-1">
+                  <input
+                    type="search"
+                    class="form-control form-control-sm"
+                    placeholder="Videos durchsuchen"
+                    aria-label="Videos durchsuchen"
+                    data-video-search-input
+                  >
+                </div>
+                <div class="d-flex gap-2">
+                  <button type="button" class="btn btn-outline-secondary btn-sm" data-video-search-clear>Zurücksetzen</button>
+                </div>
+              </div>
+              <div class="form-text">Sucht nach Dateien im aktuellen Videoordner. Die Auswahl bleibt beim Suchen erhalten.</div>
+            </div>
+            <div class="d-none" data-video-search-results>
+              <h3 class="h6 text-uppercase text-muted">Suchergebnisse</h3>
+              <div class="alert alert-warning d-none" role="alert" data-video-search-no-results>
+                Keine Videos gefunden, die den Suchbegriff enthalten.
+              </div>
+              <ul class="list-group video-list" data-video-search-results-list></ul>
+            </div>
           </div>
         </div>
         <div class="col-12">
