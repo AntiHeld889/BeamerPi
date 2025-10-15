@@ -1,5 +1,6 @@
 {
   "audio_output": "auto",
-  "trigger_start_webhook_url": "http://127.0.0.1:8093/v1/state/0_userdata.0.Status_Trigger_Video>
-  "trigger_end_webhook_url": "http://127.0.0.1:8093/v1/state/0_userdata.0.Status_Trigger_Video?v>
+  "trigger_start_webhook_url": "http://127.0.0.1:8093/v1/state/0_userdata.0.Status_Trigger_Video?value=true",
+  "trigger_end_webhook_url": "http://127.0.0.1:8093/v1/state/0_userdata.0.Status_Trigger_Video?value=false",
+  "video_directory": "/opt/videoplayer/videos"
 }
