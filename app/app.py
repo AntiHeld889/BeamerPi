@@ -237,10 +237,17 @@ def trigger() -> Response:
     return redirect(url_for("index"))
 
 
-@app.route("/api/trigger", methods=["POST"])
+@app.route("/api/trigger", methods=["POST", "GET"])
 def api_trigger() -> Response:
-    payload = request.get_json(silent=True) or {}
-    playlist_name = payload.get("playlist") if payload else request.form.get("playlist")
+    playlist_name: Optional[str]
+    if request.method == "GET":
+        playlist_name = request.args.get("playlist")
+    else:
+        payload = request.get_json(silent=True)
+        if isinstance(payload, dict):
+            playlist_name = payload.get("playlist")
+        else:
+            playlist_name = request.form.get("playlist")
     if playlist_name:
         if not _start_playlist(playlist_name):
             return jsonify({"status": "error", "message": "Playlist nicht gefunden"}), 404
