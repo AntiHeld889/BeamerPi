@@ -104,9 +104,25 @@
       <ul class="list-group video-list" data-video-search-results-list></ul>
     </div>
     {% if video_tree %}
-      <ul class="list-group video-list video-tree">
-        {{ render_video_checkboxes(video_tree) }}
-      </ul>
+      <div class="row g-3" data-playlist-editor>
+        <div class="col-12 col-lg-7">
+          <ul class="list-group video-list video-tree">
+            {{ render_video_checkboxes(video_tree) }}
+          </ul>
+        </div>
+        <div class="col-12 col-lg-5">
+          <div class="border rounded p-3 h-100 d-flex flex-column">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <h3 class="h6 text-uppercase text-muted mb-0">Ausgewählte Videos</h3>
+              <span class="badge text-bg-secondary" data-selected-videos-count>0</span>
+            </div>
+            <p class="text-muted small mb-0" data-selected-videos-empty>
+              Aktuell sind keine Videos zur Playlist hinzugefügt.
+            </p>
+            <ul class="list-group mt-2 flex-grow-1 overflow-auto" data-selected-videos-list></ul>
+          </div>
+        </div>
+      </div>
     {% else %}
       <p class="text-muted">Keine Videos gefunden.</p>
     {% endif %}
@@ -158,6 +174,95 @@
     const fileEntryMap = new Map(
       fileEntries.filter((entry) => entry.path).map((entry) => [entry.path, entry])
     );
+
+    const selectedList = document.querySelector('[data-selected-videos-list]');
+    const selectedEmptyState = document.querySelector('[data-selected-videos-empty]');
+    const selectedCount = document.querySelector('[data-selected-videos-count]');
+    const selectedEntryMap = new Map();
+
+    const updateSelectedSummary = () => {
+      if (!selectedList) {
+        return;
+      }
+      const itemCount = selectedList.querySelectorAll('[data-selected-video-item]').length;
+      if (selectedEmptyState) {
+        selectedEmptyState.classList.toggle('d-none', itemCount > 0);
+      }
+      if (selectedCount) {
+        selectedCount.textContent = String(itemCount);
+      }
+    };
+
+    const buildSelectedListItem = (entry) => {
+      const item = document.createElement('li');
+      item.className = 'list-group-item d-flex align-items-start align-items-lg-center justify-content-between gap-2';
+      item.dataset.selectedVideoItem = entry.path || '';
+
+      const info = document.createElement('div');
+      info.className = 'flex-grow-1';
+
+      const title = document.createElement('div');
+      title.className = 'fw-semibold text-truncate';
+      title.textContent = entry.name || entry.path || '';
+      info.append(title);
+
+      if (entry.path && entry.name && entry.name !== entry.path) {
+        const subtitle = document.createElement('div');
+        subtitle.className = 'text-muted small text-break';
+        subtitle.textContent = entry.path;
+        info.append(subtitle);
+      }
+
+      const actions = document.createElement('div');
+      actions.className = 'd-flex align-items-center gap-2 flex-shrink-0';
+
+      if (entry.previewSrc) {
+        const previewButton = document.createElement('button');
+        previewButton.type = 'button';
+        previewButton.className = 'btn btn-sm btn-outline-secondary';
+        previewButton.textContent = 'Vorschau';
+        previewButton.dataset.previewTrigger = 'true';
+        previewButton.dataset.videoName = entry.name || entry.path || '';
+        previewButton.dataset.videoPath = entry.path || '';
+        previewButton.dataset.videoSrc = entry.previewSrc;
+        actions.append(previewButton);
+      }
+
+      const removeButton = document.createElement('button');
+      removeButton.type = 'button';
+      removeButton.className = 'btn btn-sm btn-outline-danger';
+      removeButton.textContent = 'Entfernen';
+      removeButton.addEventListener('click', () => {
+        if (entry.checkbox) {
+          entry.checkbox.checked = false;
+          entry.checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+      actions.append(removeButton);
+
+      item.append(info, actions);
+      return item;
+    };
+
+    const syncSelectedEntry = (entry) => {
+      if (!selectedList || !entry.path || !entry.checkbox) {
+        return;
+      }
+
+      const existingItem = selectedEntryMap.get(entry.path);
+      if (entry.checkbox.checked) {
+        if (!existingItem) {
+          const item = buildSelectedListItem(entry);
+          selectedEntryMap.set(entry.path, item);
+          selectedList.appendChild(item);
+        }
+      } else if (existingItem) {
+        existingItem.remove();
+        selectedEntryMap.delete(entry.path);
+      }
+
+      updateSelectedSummary();
+    };
 
     let activePreviewEntry = null;
 
@@ -379,10 +484,12 @@
     fileEntries.forEach((entry) => {
       if (entry.checkbox) {
         entry.checkbox.addEventListener('change', () => {
+          syncSelectedEntry(entry);
           if ((searchInput.value || '').trim()) {
             updateResults();
           }
         });
+        syncSelectedEntry(entry);
       }
     });
 
