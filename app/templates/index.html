@@ -64,7 +64,7 @@
       <span class="badge bg-light text-dark" data-playlist-count>{{ playlists|length }} Playlists</span>
     </div>
     {% if playlists %}
-      <div class="list-group" data-playlist-list>
+      <div class="list-group playlist-grid" data-playlist-list>
         {% for name, playlist in playlists.items() %}
           <div class="list-group-item {% if active_playlist == name %}playlist-item-active{% endif %}" data-playlist-item data-playlist-name="{{ playlist.name|lower }}">
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
