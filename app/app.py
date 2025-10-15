@@ -32,6 +32,7 @@ _playlists: Dict[str, Playlist] = _storage.load_playlists()
 _active_playlist: Optional[str] = None
 _active_index: int = 0
 _state_lock = threading.Lock()
+_auto_start_playlist_name = _settings_manager.get_auto_start_playlist()
 
 _player = VideoPlayer(
     _settings_manager.get_video_directory(),
@@ -181,6 +182,11 @@ def _trigger_next() -> bool:
         flash(f"Video {video} konnte nicht gefunden werden.", "error")
         return False
     return True
+
+
+if _auto_start_playlist_name:
+    if not _start_playlist(_auto_start_playlist_name):
+        _settings_manager.set_auto_start_playlist(None)
 
 
 # Routes ----------------------------------------------------------------------
@@ -338,12 +344,21 @@ def settings() -> Response:
             trigger_start_webhook = request.form.get("trigger_start_webhook", "")
             trigger_end_webhook = request.form.get("trigger_end_webhook", "")
             video_directory_input = request.form.get("video_directory", "")
+            auto_start_playlist = request.form.get("auto_start_playlist", "").strip()
 
             _settings_manager.set_audio_output(audio_output)
             _settings_manager.set_trigger_start_webhook(trigger_start_webhook)
             _settings_manager.set_trigger_end_webhook(trigger_end_webhook)
 
             save_success = True
+            if auto_start_playlist and auto_start_playlist not in _playlists:
+                flash("Die ausgewählte Playlist wurde nicht gefunden.", "error")
+                save_success = False
+            else:
+                _settings_manager.set_auto_start_playlist(auto_start_playlist or None)
+                if auto_start_playlist and not _start_playlist(auto_start_playlist):
+                    flash("Automatische Playlist konnte nicht gestartet werden.", "error")
+                    save_success = False
             try:
                 updated_directory = _settings_manager.set_video_directory(video_directory_input)
             except ValueError as exc:
@@ -423,6 +438,7 @@ def settings() -> Response:
         "settings.html",
         settings=_settings_manager.settings,
         video_directory=video_directory,
+        available_playlists=sorted(_playlists.keys()),
     )
 
 
