@@ -40,6 +40,7 @@
           class="btn btn-sm btn-outline-secondary"
           data-preview-trigger
           data-video-name="{{ node.name }}"
+          data-video-path="{{ node.path }}"
           data-video-src="{{ url_for('serve_video', filename=node.path) }}"
         >Vorschau</button>
       </li>
@@ -154,6 +155,30 @@
       };
     });
 
+    const fileEntryMap = new Map(
+      fileEntries.filter((entry) => entry.path).map((entry) => [entry.path, entry])
+    );
+
+    let activePreviewEntry = null;
+
+    const highlightPreviewEntry = (path) => {
+      if (!path) {
+        return;
+      }
+
+      const entry = fileEntryMap.get(path);
+      if (!entry) {
+        return;
+      }
+
+      if (activePreviewEntry && activePreviewEntry.element !== entry.element) {
+        activePreviewEntry.element.classList.remove('preview-active');
+      }
+
+      entry.element.classList.add('preview-active');
+      activePreviewEntry = entry;
+    };
+
     const previewModal = document.querySelector('[data-preview-modal]');
     const previewVideo = previewModal ? previewModal.querySelector('[data-preview-video]') : null;
     const previewTitle = previewModal ? previewModal.querySelector('[data-preview-title]') : null;
@@ -174,7 +199,7 @@
       document.body.classList.remove('overflow-hidden');
     };
 
-    const openPreview = (videoName, videoSrc) => {
+    const openPreview = (videoName, videoSrc, videoPath = '') => {
       if (!previewModal || !previewVideo || !videoSrc) {
         return;
       }
@@ -184,6 +209,7 @@
       }
       previewVideo.src = videoSrc;
       previewVideo.load();
+      highlightPreviewEntry(videoPath);
       previewModal.classList.remove('d-none');
       document.body.classList.add('overflow-hidden');
       const playPromise = previewVideo.play();
@@ -220,7 +246,14 @@
       event.preventDefault();
       const videoName = trigger.dataset.videoName || '';
       const videoSrc = trigger.dataset.videoSrc || '';
-      openPreview(videoName, videoSrc);
+      const videoPath = trigger.dataset.videoPath || '';
+      const closestEntry = trigger.closest('[data-video-entry]');
+      if (closestEntry && closestEntry.dataset.videoPath) {
+        highlightPreviewEntry(closestEntry.dataset.videoPath);
+      } else {
+        highlightPreviewEntry(videoPath);
+      }
+      openPreview(videoName, videoSrc, videoPath);
     });
 
     if (!searchInput || !resultsWrapper || !resultsList) {
@@ -284,6 +317,7 @@
         previewButton.textContent = 'Vorschau';
         previewButton.dataset.previewTrigger = 'true';
         previewButton.dataset.videoName = entry.name || entry.path;
+        previewButton.dataset.videoPath = entry.path || '';
         previewButton.dataset.videoSrc = entry.previewSrc;
         actions.append(previewButton);
       }
