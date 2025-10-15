@@ -1,13 +1,13 @@
 {
-  "Halloween": {
-    "name": "Halloween",
+  "Halloween Allgemein": {
+    "name": "Halloween Allgemein",
     "loop_video": "loop.mp4",
     "videos": [
       "Bone Chillers 2/Horizontal/Skeleton Band/Hollusion - Horizontal/Bone2-Friendly-Orgelspiel.mp4",
-      "Bone Chillers/Scary Scenes/Window - Hologram/Bone Chillers - Scary Scenes - Window - Hologram - Fear the Reaper.mp4",
-      "Bone Chillers/Scary Scenes/Window - Hologram/Bone Chillers - Scary Scenes - Window - Hologram - Gathering Ghouls.mp4",
-      "Bone Chillers/Scary Scenes/Window - Hologram/Bone Chillers - Scary Scenes - Window - Hologram - Pop-Up Panic.mp4",
-      "Bone Chillers/Scary Scenes/Window - Hologram/Bone Chillers - Scary Scenes - Window - Hologram - Skeleton Surprise.mp4",
+      "Bone Chillers/Scary Scenes/Fear the Reaper.mp4",
+      "Bone Chillers/Scary Scenes/Gathering Ghouls.mp4",
+      "Bone Chillers/Scary Scenes/Pop-Up Panic.mp4",
+      "Bone Chillers/Scary Scenes/Skeleton Surprise.mp4",
       "Bone Chillers 2/Horizontal/Spooky Skeletons/Hollusion - Horizontal/BC2_Shackled Skeleton_Holl_H.mp4",
       "Legends of Halloween/Horizontal/LOH - Grim Reaper - Hollusion - Horizontal/Grim Reaper_Startle Scare1_Holl_H.mp4",
       "Legends of Halloween/Horizontal/LOH - Grim Reaper - Hollusion - Horizontal/Grim Reaper_Startle Scare2_Holl_H.mp4",
@@ -21,6 +21,7 @@
       "Legends Of Halloween - Scarecrow 2024/Fire and Lightning - Hollusion and Disc - Horizontal/Scarecrow_Storm Crow_Holl_H.mp4",
       "Legends Of Halloween - Scarecrow 2024/Scared Crows - Hollusion and Disc - Horizontal/Scarecrow_Eating Crow_Holl_H.mp4",
       "Legends Of Halloween - Scarecrow 2024/Scared Crows - Hollusion and Disc - Horizontal/Scarecrow_Scarecrow-Go-Round_Holl_H.mp4",
+      "Legends Of Halloween - Scarecrow 2024/Startle Scarescrow - Hollusion and Disc - Horizontal/Scarecrow_Startle Scare1_Holl_H.mp4",
       "Legends Of Halloween - Scarecrow 2024/Startle Scarescrow - Hollusion and Disc - Horizontal/Scarecrow_Startle Scare2_Holl_H.mp4",
       "Legends Of Halloween - Scarecrow 2024/Startle Scarescrow - Hollusion and Disc - Horizontal/Scarecrow_Startle Scare3_Holl_H.mp4"
     ]
