@@ -206,13 +206,6 @@
       title.textContent = entry.name || entry.path || '';
       info.append(title);
 
-      if (entry.path && entry.name && entry.name !== entry.path) {
-        const subtitle = document.createElement('div');
-        subtitle.className = 'text-muted small text-break';
-        subtitle.textContent = entry.path;
-        info.append(subtitle);
-      }
-
       const actions = document.createElement('div');
       actions.className = 'd-flex align-items-center gap-2 flex-shrink-0';
 
