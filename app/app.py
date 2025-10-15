@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import threading
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from flask import (
     Flask,
@@ -34,6 +34,21 @@ _active_index: int = 0
 _state_lock = threading.Lock()
 _auto_start_playlist_name = _settings_manager.get_auto_start_playlist()
 
+ALLOWED_VIDEO_EXTENSIONS: Set[str] = {
+    ".mp4",
+    ".mkv",
+    ".mov",
+    ".avi",
+    ".mpg",
+    ".mpeg",
+    ".webm",
+    ".m4v",
+    ".wmv",
+}
+
+_video_cache_lock = threading.Lock()
+_video_cache: Dict[str, Any] = {"directory": None, "videos": None}
+
 _player = VideoPlayer(
     _settings_manager.get_video_directory(),
     _settings_manager.get_audio_output,
@@ -48,15 +63,33 @@ def _get_video_directory() -> Path:
 
 
 def _get_videos() -> Dict[str, Path]:
-    videos: Dict[str, Path] = {}
     base = _get_video_directory()
-    if base.exists():
-        base = base.resolve()
-        for entry in sorted(base.rglob("*")):
-            if entry.is_file():
-                relative_name = entry.relative_to(base).as_posix()
+    resolved_base = base.resolve(strict=False)
+
+    with _video_cache_lock:
+        cached_directory = _video_cache.get("directory")
+        cached_videos = _video_cache.get("videos")
+        if cached_directory == resolved_base and cached_videos is not None:
+            return dict(cached_videos)
+
+    videos: Dict[str, Path] = {}
+    if resolved_base.exists():
+        for entry in sorted(resolved_base.rglob("*")):
+            if entry.is_file() and entry.suffix.lower() in ALLOWED_VIDEO_EXTENSIONS:
+                relative_name = entry.relative_to(resolved_base).as_posix()
                 videos[relative_name] = entry
+
+    with _video_cache_lock:
+        _video_cache["directory"] = resolved_base
+        _video_cache["videos"] = dict(videos)
+
     return videos
+
+
+def _invalidate_video_cache() -> None:
+    with _video_cache_lock:
+        _video_cache["directory"] = None
+        _video_cache["videos"] = None
 
 
 def _build_video_tree(videos: Dict[str, Path]) -> List[Dict[str, Any]]:
@@ -106,6 +139,58 @@ def _get_playlist(name: str) -> Optional[Playlist]:
 
 def _save_playlists() -> None:
     _storage.save_playlists(_playlists)
+
+
+def _delete_playlist(name: str) -> bool:
+    global _active_playlist, _active_index
+    playlist = _playlists.pop(name, None)
+    if playlist is None:
+        return False
+
+    should_reset_loop = False
+    with _state_lock:
+        if _active_playlist == name:
+            _active_playlist = None
+            _active_index = 0
+            should_reset_loop = True
+
+    if should_reset_loop:
+        _player.set_loop_video(None)
+
+    if _settings_manager.get_auto_start_playlist() == name:
+        _settings_manager.set_auto_start_playlist(None)
+
+    _save_playlists()
+    return True
+
+
+def _duplicate_playlist(name: str, new_name: Optional[str] = None) -> Playlist:
+    original = _get_playlist(name)
+    if original is None:
+        raise KeyError(name)
+
+    if new_name:
+        candidate = new_name.strip()
+        if not candidate:
+            raise ValueError("Der neue Playlist-Name darf nicht leer sein.")
+        if candidate in _playlists:
+            raise ValueError("Eine Playlist mit diesem Namen existiert bereits.")
+    else:
+        base_name = f"{original.name} Kopie"
+        candidate = base_name
+        suffix = 2
+        while candidate in _playlists:
+            candidate = f"{base_name} {suffix}"
+            suffix += 1
+
+    playlist = Playlist(
+        name=candidate,
+        loop_video=original.loop_video,
+        videos=list(original.videos),
+    )
+    _playlists[playlist.name] = playlist
+    _save_playlists()
+    return playlist
 
 
 def _get_active_progress() -> Optional[Dict[str, Any]]:
@@ -252,6 +337,31 @@ def edit_playlist(name: str) -> Response:
     )
 
 
+@app.route("/playlist/<name>/delete", methods=["POST"])
+def delete_playlist(name: str) -> Response:
+    if _delete_playlist(name):
+        flash(f"Playlist {name} wurde gelöscht.", "success")
+    else:
+        flash("Playlist wurde nicht gefunden.", "error")
+    return redirect(url_for("index"))
+
+
+@app.route("/playlist/<name>/duplicate", methods=["POST"])
+def duplicate_playlist(name: str) -> Response:
+    new_name = request.form.get("new_name")
+    try:
+        playlist = _duplicate_playlist(name, new_name)
+    except KeyError:
+        flash("Playlist wurde nicht gefunden.", "error")
+        return redirect(url_for("index"))
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("index"))
+
+    flash(f"Playlist {playlist.name} wurde dupliziert.", "success")
+    return redirect(url_for("edit_playlist", name=playlist.name))
+
+
 @app.route("/playlist/<name>/start", methods=["POST"])
 def start_playlist(name: str) -> Response:
     if _start_playlist(name):
@@ -305,6 +415,30 @@ def api_status() -> Response:
 @app.route("/api/playlists", methods=["GET"])
 def api_playlists() -> Response:
     return jsonify({"playlists": _serialize_playlists()})
+
+
+@app.route("/api/playlists/<name>", methods=["DELETE"])
+def api_delete_playlist(name: str) -> Response:
+    if not _delete_playlist(name):
+        return jsonify({"status": "error", "message": "Playlist nicht gefunden"}), 404
+    return jsonify({"status": "ok"})
+
+
+@app.route("/api/playlists/<name>/duplicate", methods=["POST"])
+def api_duplicate_playlist(name: str) -> Response:
+    payload = request.get_json(silent=True)
+    new_name: Optional[str] = None
+    if isinstance(payload, dict):
+        new_name = payload.get("name") or payload.get("new_name")
+    if new_name is None:
+        new_name = request.form.get("name") or request.form.get("new_name")
+    try:
+        playlist = _duplicate_playlist(name, new_name)
+    except KeyError:
+        return jsonify({"status": "error", "message": "Playlist nicht gefunden"}), 404
+    except ValueError as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 400
+    return jsonify({"status": "ok", "playlist": playlist.to_dict()})
 
 
 @app.route("/api/videos", methods=["GET"])
@@ -372,6 +506,7 @@ def settings() -> Response:
             else:
                 _player.set_video_directory(updated_directory)
                 video_directory = updated_directory
+                _invalidate_video_cache()
 
             if _active_playlist:
                 playlist = _playlists.get(_active_playlist)
@@ -400,6 +535,7 @@ def settings() -> Response:
                         flash(f"Ordner konnte nicht erstellt werden: {exc}", "error")
                     else:
                         flash("Ordner wurde erstellt.", "success")
+                        _invalidate_video_cache()
                 else:
                     flash("Der Ordnerpfad muss innerhalb des Videoverzeichnisses liegen.", "error")
             return redirect(url_for("settings"))
@@ -432,6 +568,7 @@ def settings() -> Response:
                         saved_files += 1
                     if saved_files:
                         flash(f"{saved_files} Datei(en) hochgeladen.", "success")
+                        _invalidate_video_cache()
                     else:
                         flash("Keine gültigen Videodateien ausgewählt.", "error")
             else:
