@@ -131,6 +131,24 @@ def _get_active_progress() -> Optional[Dict[str, Any]]:
     }
 
 
+def _serialize_playlists() -> List[Dict[str, Any]]:
+    progress = _get_active_progress()
+    serialized: List[Dict[str, Any]] = []
+    for name, playlist in sorted(_playlists.items()):
+        playlist_data = {
+            "name": playlist.name,
+            "loop_video": playlist.loop_video,
+            "videos": playlist.videos,
+            "is_active": False,
+            "progress": None,
+        }
+        if progress and progress["playlist_name"] == name:
+            playlist_data["is_active"] = True
+            playlist_data["progress"] = progress
+        serialized.append(playlist_data)
+    return serialized
+
+
 def _start_playlist(name: str) -> bool:
     global _active_playlist, _active_index
     playlist = _get_playlist(name)
@@ -270,6 +288,22 @@ def api_status() -> Response:
             "status": _player.get_status(),
             "active_playlist": active_name,
             "active_progress": _get_active_progress(),
+        }
+    )
+
+
+@app.route("/api/playlists", methods=["GET"])
+def api_playlists() -> Response:
+    return jsonify({"playlists": _serialize_playlists()})
+
+
+@app.route("/api/videos", methods=["GET"])
+def api_videos() -> Response:
+    videos = _get_videos()
+    return jsonify(
+        {
+            "videos": sorted(videos.keys()),
+            "tree": _build_video_tree(videos),
         }
     )
 

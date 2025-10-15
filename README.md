@@ -37,6 +37,22 @@ Der Endpunkt antwortet mit `{"status": "ok"}` wenn ein Video erfolgreich in die 
 curl http://localhost:5000/api/status
 ```
 
+### Playlists als JSON abrufen
+
+Mit einem `GET`-Request auf `/api/playlists` erhältst du eine Übersicht aller gespeicherten Playlists samt Status, Loop-Video und Trackliste. Die aktuell aktive Playlist ist im Feld `is_active` markiert und enthält unter `progress` zusätzliche Informationen zum nächsten Track.
+
+```bash
+curl http://localhost:5000/api/playlists
+```
+
+### Verfügbare Videos auflisten
+
+Über `/api/videos` liefert der Player eine flache Liste aller gefundenen Videodateien und zusätzlich eine hierarchische Struktur (`tree`), die Unterordner widerspiegelt. Das erleichtert das Bauen eigener Verwaltungs-Frontends.
+
+```bash
+curl http://localhost:5000/api/videos
+```
+
 ### Playlist per Webhook starten
 
 Soll eine bestimmte Playlist ohne zusätzlichen Payload gestartet werden, kann der Webhook-Endpunkt genutzt werden:
