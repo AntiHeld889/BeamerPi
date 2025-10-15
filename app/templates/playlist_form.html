@@ -128,12 +128,14 @@
       <div class="row g-3 align-items-start" data-playlist-editor>
         <div class="col-12 col-lg-5 col-xl-4">
           <section class="card shadow-sm playlist-editor-sidebar playlist-editor-card h-100">
-            <div class="card-header d-flex align-items-center justify-content-between">
-              <div>
-                <div class="fw-semibold">Playlist-Zusammenstellung</div>
-                <small class="text-muted">Reihenfolge entsprechend der Auswahl</small>
+            <div class="card-header">
+              <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-2">
+                <div>
+                  <div class="fw-semibold">Playlist-Zusammenstellung</div>
+                  <small class="text-muted">Reihenfolge entsprechend der Auswahl</small>
+                </div>
+                <span class="badge text-bg-secondary" data-selected-videos-count>0 Videos</span>
               </div>
-              <span class="badge text-bg-secondary" data-selected-videos-count>0 Videos</span>
             </div>
             <div class="card-body">
               <p class="text-muted small mb-0" data-selected-videos-empty>
@@ -183,7 +185,6 @@
                   <button type="button" class="btn btn-outline-secondary btn-sm" data-video-search-clear>Zurücksetzen</button>
                 </div>
               </div>
-              <div class="form-text">Die Suche durchsucht alle Videodateien in den Ordnern. Ihre aktuelle Auswahl bleibt erhalten.</div>
               <div class="d-none" data-video-search-results>
                 <h3 class="h6 text-uppercase text-muted">Suchergebnisse</h3>
                 <div class="alert alert-warning d-none" role="alert" data-video-search-no-results>
