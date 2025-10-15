@@ -52,9 +52,12 @@
       }
 
       .container {
-        max-width: min(1680px, calc(100% - clamp(2rem, 6vw, 10rem)));
+        width: min(
+          calc(100% - clamp(1.5rem, 3.5vw, 6rem)),
+          clamp(20rem, 94vw, 120rem)
+        );
         margin-inline: auto;
-        padding-inline: clamp(1.25rem, 4vw, 4rem);
+        padding-inline: clamp(1.25rem, 3vw, 3.5rem);
       }
 
       main {
