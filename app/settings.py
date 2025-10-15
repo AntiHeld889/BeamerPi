@@ -7,17 +7,22 @@ from typing import Dict
 from .storage import StorageManager
 
 
+DEFAULT_VIDEO_DIRECTORY = Path("/opt/videoplayer/videos")
+
+
 @dataclass
 class Settings:
     audio_output: str = "auto"
     trigger_start_webhook_url: str = ""
     trigger_end_webhook_url: str = ""
+    video_directory: str = str(DEFAULT_VIDEO_DIRECTORY)
 
     def to_dict(self) -> Dict[str, str]:
         return {
             "audio_output": self.audio_output,
             "trigger_start_webhook_url": self.trigger_start_webhook_url,
             "trigger_end_webhook_url": self.trigger_end_webhook_url,
+            "video_directory": self.video_directory,
         }
 
     @classmethod
@@ -26,6 +31,7 @@ class Settings:
             audio_output=payload.get("audio_output", "auto"),
             trigger_start_webhook_url=payload.get("trigger_start_webhook_url", ""),
             trigger_end_webhook_url=payload.get("trigger_end_webhook_url", ""),
+            video_directory=payload.get("video_directory", str(DEFAULT_VIDEO_DIRECTORY)),
         )
 
 
@@ -61,3 +67,24 @@ class SettingsManager:
 
     def get_trigger_end_webhook(self) -> str:
         return self._settings.trigger_end_webhook_url
+
+    def set_video_directory(self, directory: str) -> Path:
+        directory = directory.strip()
+        if not directory:
+            directory = str(DEFAULT_VIDEO_DIRECTORY)
+
+        path = Path(directory).expanduser()
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise ValueError(f"Ordner konnte nicht erstellt werden: {exc}") from exc
+
+        resolved = path.resolve()
+        self._settings.video_directory = str(resolved)
+        self.save()
+        return resolved
+
+    def get_video_directory(self) -> Path:
+        directory = Path(self._settings.video_directory).expanduser()
+        directory.mkdir(parents=True, exist_ok=True)
+        return directory
