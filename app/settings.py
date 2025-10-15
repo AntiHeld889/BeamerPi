@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 from .storage import StorageManager
 
@@ -16,6 +16,7 @@ class Settings:
     trigger_start_webhook_url: str = ""
     trigger_end_webhook_url: str = ""
     video_directory: str = str(DEFAULT_VIDEO_DIRECTORY)
+    auto_start_playlist: str = ""
 
     def to_dict(self) -> Dict[str, str]:
         return {
@@ -23,15 +24,20 @@ class Settings:
             "trigger_start_webhook_url": self.trigger_start_webhook_url,
             "trigger_end_webhook_url": self.trigger_end_webhook_url,
             "video_directory": self.video_directory,
+            "auto_start_playlist": self.auto_start_playlist,
         }
 
     @classmethod
     def from_dict(cls, payload: Dict[str, str]) -> "Settings":
+        auto_start_value = payload.get("auto_start_playlist", "")
+        if not isinstance(auto_start_value, str):
+            auto_start_value = ""
         return cls(
             audio_output=payload.get("audio_output", "auto"),
             trigger_start_webhook_url=payload.get("trigger_start_webhook_url", ""),
             trigger_end_webhook_url=payload.get("trigger_end_webhook_url", ""),
             video_directory=payload.get("video_directory", str(DEFAULT_VIDEO_DIRECTORY)),
+            auto_start_playlist=auto_start_value,
         )
 
 
@@ -88,3 +94,14 @@ class SettingsManager:
         directory = Path(self._settings.video_directory).expanduser()
         directory.mkdir(parents=True, exist_ok=True)
         return directory
+
+    def set_auto_start_playlist(self, playlist_name: Optional[str]) -> None:
+        if playlist_name:
+            playlist_name = playlist_name.strip()
+        else:
+            playlist_name = ""
+        self._settings.auto_start_playlist = playlist_name
+        self.save()
+
+    def get_auto_start_playlist(self) -> str:
+        return self._settings.auto_start_playlist

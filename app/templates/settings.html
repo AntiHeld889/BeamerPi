@@ -32,6 +32,16 @@
     >
     <div class="form-text">Der Ordner wird automatisch erstellt, falls er noch nicht existiert.</div>
   </div>
+  <div class="mb-3">
+    <label for="auto_start_playlist" class="form-label">Automatisch startende Playlist</label>
+    <select class="form-select" id="auto_start_playlist" name="auto_start_playlist">
+      <option value="" {% if not settings.auto_start_playlist %}selected{% endif %}>Keine automatische Wiedergabe</option>
+      {% for playlist_name in available_playlists %}
+      <option value="{{ playlist_name }}" {% if settings.auto_start_playlist == playlist_name %}selected{% endif %}>{{ playlist_name }}</option>
+      {% endfor %}
+    </select>
+    <div class="form-text">Diese Playlist wird beim Start der Anwendung automatisch aktiviert.</div>
+  </div>
   <button type="submit" class="btn btn-primary">Speichern</button>
   <a href="{{ url_for('index') }}" class="btn btn-secondary">Zurück</a>
 </form>
