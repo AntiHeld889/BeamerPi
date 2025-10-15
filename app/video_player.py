@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from queue import Empty, Queue
 from typing import Callable, Optional
-from urllib import error, request
+from urllib import error, parse, request
 
 
 class VideoPlayer:
@@ -355,7 +355,35 @@ class VideoPlayer:
         data = json.dumps(payload).encode("utf-8")
         req = request.Request(url, data=data, headers={"Content-Type": "application/json"})
         try:
-            with request.urlopen(req, timeout=5):
-                pass
+            with request.urlopen(req, timeout=5) as response:
+                response.read()
+        except error.HTTPError as exc:
+            if exc.code in {405, 501}:
+                self._send_webhook_get(url, payload)
+                return
+            print(f"Webhook request to {url} failed: {exc}")
         except error.URLError as exc:
             print(f"Webhook request to {url} failed: {exc}")
+
+    def _send_webhook_get(self, url: str, payload: dict) -> None:
+        query = parse.urlencode(payload)
+        parsed = parse.urlparse(url)
+        if parsed.query:
+            query = f"{parsed.query}&{query}"
+        url_with_query = parse.urlunparse(
+            (
+                parsed.scheme,
+                parsed.netloc,
+                parsed.path,
+                parsed.params,
+                query,
+                parsed.fragment,
+            )
+        )
+
+        req = request.Request(url_with_query)
+        try:
+            with request.urlopen(req, timeout=5) as response:
+                response.read()
+        except error.URLError as exc:
+            print(f"Webhook request to {url_with_query} failed: {exc}")
