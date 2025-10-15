@@ -208,7 +208,9 @@ def create_playlist() -> Response:
     if request.method == "POST":
         name = request.form.get("name", "").strip()
         loop_video = request.form.get("loop_video") or None
-        selected_videos = request.form.getlist("videos")
+        selected_videos = request.form.getlist("ordered_videos")
+        if not selected_videos:
+            selected_videos = request.form.getlist("videos")
         if not name:
             flash("Bitte einen Namen für die Playlist eingeben.", "error")
         else:
@@ -234,7 +236,9 @@ def edit_playlist(name: str) -> Response:
     videos = _get_videos()
     if request.method == "POST":
         loop_video = request.form.get("loop_video") or None
-        selected_videos = request.form.getlist("videos")
+        selected_videos = request.form.getlist("ordered_videos")
+        if not selected_videos:
+            selected_videos = request.form.getlist("videos")
         playlist.loop_video = loop_video
         playlist.videos = selected_videos
         _save_playlists()

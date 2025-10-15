@@ -139,7 +139,12 @@
               <p class="text-muted small mb-0" data-selected-videos-empty>
                 Aktuell sind keine Videos zur Playlist hinzugefügt.
               </p>
-              <ul class="list-group flex-grow-1" data-selected-videos-list></ul>
+              <ul
+                class="list-group flex-grow-1"
+                data-selected-videos-list
+                data-initial-order='{{ playlist.videos|tojson if playlist else "[]" }}'
+              ></ul>
+              <div data-selected-videos-inputs hidden></div>
             </div>
           </section>
         </div>
@@ -249,6 +254,17 @@
     const selectedEmptyState = document.querySelector('[data-selected-videos-empty]');
     const selectedCount = document.querySelector('[data-selected-videos-count]');
     const selectedEntryMap = new Map();
+    const orderedInputsContainer = document.querySelector('[data-selected-videos-inputs]');
+    const selectedListInitialOrder = (() => {
+      if (!selectedList || !selectedList.dataset.initialOrder) {
+        return [];
+      }
+      try {
+        return JSON.parse(selectedList.dataset.initialOrder);
+      } catch (error) {
+        return [];
+      }
+    })();
 
     const updateSelectedSummary = () => {
       if (!selectedList) {
@@ -264,9 +280,70 @@
       }
     };
 
+    const refreshOrderedInputs = () => {
+      if (!orderedInputsContainer) {
+        return;
+      }
+      orderedInputsContainer.innerHTML = '';
+      if (!selectedList) {
+        return;
+      }
+      const items = Array.from(selectedList.querySelectorAll('[data-selected-video-item]'));
+      items.forEach((item) => {
+        const path = item.dataset.selectedVideoItem || '';
+        if (!path) {
+          return;
+        }
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'ordered_videos';
+        input.value = path;
+        orderedInputsContainer.appendChild(input);
+      });
+    };
+
+    const updateReorderControls = () => {
+      if (!selectedList) {
+        return;
+      }
+      const items = Array.from(selectedList.querySelectorAll('[data-selected-video-item]'));
+      items.forEach((item, index) => {
+        const moveUpButton = item.querySelector('[data-move-up]');
+        const moveDownButton = item.querySelector('[data-move-down]');
+        if (moveUpButton) {
+          moveUpButton.disabled = index === 0;
+        }
+        if (moveDownButton) {
+          moveDownButton.disabled = index === items.length - 1;
+        }
+      });
+    };
+
+    const moveSelectedItem = (item, direction) => {
+      if (!selectedList) {
+        return;
+      }
+      if (direction < 0) {
+        const previous = item.previousElementSibling;
+        if (!previous) {
+          return;
+        }
+        selectedList.insertBefore(item, previous);
+      } else if (direction > 0) {
+        const next = item.nextElementSibling;
+        if (!next) {
+          return;
+        }
+        selectedList.insertBefore(item, next.nextSibling);
+      }
+      refreshOrderedInputs();
+      updateReorderControls();
+      updateSelectedSummary();
+    };
+
     const buildSelectedListItem = (entry) => {
       const item = document.createElement('li');
-      item.className = 'list-group-item d-flex align-items-start align-items-lg-center justify-content-between gap-2';
+      item.className = 'list-group-item d-flex align-items-start align-items-lg-center justify-content-between gap-2 flex-wrap';
       item.dataset.selectedVideoItem = entry.path || '';
 
       const info = document.createElement('div');
@@ -278,7 +355,33 @@
       info.append(title);
 
       const actions = document.createElement('div');
-      actions.className = 'd-flex align-items-center gap-2 flex-shrink-0';
+      actions.className = 'd-flex align-items-center gap-2 flex-shrink-0 flex-wrap justify-content-end';
+
+      const reorderGroup = document.createElement('div');
+      reorderGroup.className = 'btn-group btn-group-sm';
+
+      const moveUpButton = document.createElement('button');
+      moveUpButton.type = 'button';
+      moveUpButton.className = 'btn btn-outline-secondary';
+      moveUpButton.dataset.moveUp = 'true';
+      moveUpButton.innerHTML = '<span aria-hidden="true">▲</span><span class="visually-hidden">Nach oben</span>';
+      moveUpButton.addEventListener('click', () => {
+        moveSelectedItem(item, -1);
+        moveUpButton.focus({ preventScroll: true });
+      });
+
+      const moveDownButton = document.createElement('button');
+      moveDownButton.type = 'button';
+      moveDownButton.className = 'btn btn-outline-secondary';
+      moveDownButton.dataset.moveDown = 'true';
+      moveDownButton.innerHTML = '<span aria-hidden="true">▼</span><span class="visually-hidden">Nach unten</span>';
+      moveDownButton.addEventListener('click', () => {
+        moveSelectedItem(item, 1);
+        moveDownButton.focus({ preventScroll: true });
+      });
+
+      reorderGroup.append(moveUpButton, moveDownButton);
+      actions.append(reorderGroup);
 
       if (entry.previewSrc) {
         const previewButton = document.createElement('button');
@@ -325,6 +428,35 @@
         selectedEntryMap.delete(entry.path);
       }
 
+      updateSelectedSummary();
+      refreshOrderedInputs();
+      updateReorderControls();
+    };
+
+    const applyInitialOrder = () => {
+      if (!selectedList) {
+        return;
+      }
+      if (selectedListInitialOrder.length === 0) {
+        refreshOrderedInputs();
+        updateReorderControls();
+        updateSelectedSummary();
+        return;
+      }
+      const itemsByPath = new Map(
+        Array.from(selectedList.querySelectorAll('[data-selected-video-item]')).map((item) => [
+          item.dataset.selectedVideoItem || '',
+          item,
+        ])
+      );
+      selectedListInitialOrder.forEach((path) => {
+        const item = itemsByPath.get(path);
+        if (item) {
+          selectedList.appendChild(item);
+        }
+      });
+      refreshOrderedInputs();
+      updateReorderControls();
       updateSelectedSummary();
     };
 
@@ -572,6 +704,8 @@
         syncSelectedEntry(entry);
       }
     });
+
+    applyInitialOrder();
 
     if (clearButton) {
       clearButton.addEventListener('click', () => {
