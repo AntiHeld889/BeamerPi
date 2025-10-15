@@ -39,6 +39,19 @@
         background-color: #0d6efd;
         border-radius: 0.4rem;
       }
+      .playlist-item-active {
+        border-color: rgba(13, 110, 253, 0.5);
+        box-shadow: 0 0 0 0.15rem rgba(13, 110, 253, 0.15);
+      }
+      .playlist-item-active .playlist-item-title::after {
+        content: 'Aktiv';
+        margin-inline-start: 0.75rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        color: #0d6efd;
+      }
     </style>
   </head>
   <body>

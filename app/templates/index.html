@@ -1,81 +1,111 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <div>
-    <a href="{{ url_for('create_playlist') }}" class="btn btn-primary">Neue Playlist</a>
-    <a href="{{ url_for('settings') }}" class="btn btn-secondary">Einstellungen</a>
+<div class="row g-3 align-items-end mb-4">
+  <div class="col-md-8">
+    <div class="d-flex flex-wrap gap-2">
+      <a href="{{ url_for('create_playlist') }}" class="btn btn-primary">Neue Playlist</a>
+      <a href="{{ url_for('settings') }}" class="btn btn-secondary">Einstellungen</a>
+      <form method="post" action="{{ url_for('trigger') }}" class="m-0">
+        <button type="submit" class="btn btn-success" {% if not active_playlist %}disabled{% endif %}>Nächstes Video triggern</button>
+      </form>
+    </div>
   </div>
-  <form method="post" action="{{ url_for('trigger') }}">
-    <button type="submit" class="btn btn-success" {% if not active_playlist %}disabled{% endif %}>Nächstes Video triggern</button>
-  </form>
+  <div class="col-md-4">
+    <label for="playlist-filter" class="form-label small text-muted mb-1">Playlists filtern</label>
+    <input type="search" id="playlist-filter" class="form-control" placeholder="Playlist suchen…" autocomplete="off" data-playlist-filter>
+  </div>
 </div>
+
+{% if active_playlist %}
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-lg-between gap-3">
+        <div>
+          <h2 class="h5 mb-1">Aktive Playlist</h2>
+          <p class="mb-0 text-muted">{{ active_playlist }}</p>
+        </div>
+        <div class="d-flex flex-column flex-sm-row gap-3 align-items-sm-center">
+          {% set status_mode = player_status.mode if player_status else 'idle' %}
+          {% if status_mode == 'loop' %}
+            {% set status_text = 'Loop-Video' %}
+            {% set status_text_class = 'text-success' %}
+            {% set status_dot_class = 'bg-success' %}
+          {% elif status_mode == 'trigger' %}
+            {% set status_text = 'Trigger-Video' %}
+            {% set status_text_class = 'text-danger' %}
+            {% set status_dot_class = 'bg-danger' %}
+          {% else %}
+            {% set status_mode = 'idle' %}
+            {% set status_text = 'Keine Wiedergabe' %}
+            {% set status_text_class = 'text-muted' %}
+            {% set status_dot_class = 'bg-secondary' %}
+          {% endif %}
+          <span class="status-indicator {{ status_text_class }}" data-player-status data-mode="{{ status_mode }}" data-active-playlist="{{ active_playlist }}">
+            <span class="status-indicator-dot {{ status_dot_class }}" data-player-status-dot></span>
+            <span class="status-indicator-text" data-player-status-text>{{ status_text }}</span>
+          </span>
+          {% if active_progress %}
+            <div class="small text-muted">
+              <div><span class="fw-semibold">Als nächstes:</span> {{ active_progress.next_video }}</div>
+              <div><span class="fw-semibold">Fortschritt:</span> {{ active_progress.next_video_index }}/{{ active_progress.total_videos }}</div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% endif %}
 
 <div class="card">
   <div class="card-body">
-    <h2 class="card-title h4 mb-4">Playlists</h2>
-    <div class="list-group">
-      {% for name, playlist in playlists.items() %}
-        <div class="list-group-item">
-          <div class="d-flex justify-content-between align-items-center">
-            <div>
-              <h5 class="mb-1">{{ playlist.name }}</h5>
-              <p class="mb-1"><strong>Loop:</strong> {{ playlist.loop_video or 'kein Loop' }}</p>
-              <p class="mb-1"><strong>Videos:</strong> {{ playlist.videos|length }}</p>
-              {% if active_progress and active_progress.playlist_name == name %}
-                <p class="mb-1 text-muted"><strong>Als nächstes Video:</strong> {{ active_progress.next_video_index }}/{{ active_progress.total_videos }} ({{ active_progress.next_video }})</p>
-                <p class="mb-1 text-muted"><strong>Verbleibende Videos:</strong> {{ active_progress.remaining_videos }}</p>
-              {% endif %}
-              {% if active_playlist == name %}
-                {% set status_mode = player_status.mode if player_status else 'idle' %}
-                {% if status_mode == 'loop' %}
-                  {% set status_text = 'Loop-Video' %}
-                  {% set status_text_class = 'text-success' %}
-                  {% set status_dot_class = 'bg-success' %}
-                {% elif status_mode == 'trigger' %}
-                  {% set status_text = 'Trigger-Video' %}
-                  {% set status_text_class = 'text-danger' %}
-                  {% set status_dot_class = 'bg-danger' %}
-                {% else %}
-                  {% set status_mode = 'idle' %}
-                  {% set status_text = 'Keine Wiedergabe' %}
-                  {% set status_text_class = 'text-muted' %}
-                  {% set status_dot_class = 'bg-secondary' %}
-                {% endif %}
-                <div class="d-flex align-items-center gap-2 mt-2" data-player-status-container data-playlist="{{ name }}">
-                  <span class="badge bg-success">aktiv</span>
-                  <span class="status-indicator {{ status_text_class }}" data-player-status data-mode="{{ status_mode }}">
-                    <span class="status-indicator-dot {{ status_dot_class }}" data-player-status-dot></span>
-                    <span class="status-indicator-text" data-player-status-text>{{ status_text }}</span>
-                  </span>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <h2 class="card-title h4 mb-0">Playlists</h2>
+      <span class="badge bg-light text-dark" data-playlist-count>{{ playlists|length }} Playlists</span>
+    </div>
+    {% if playlists %}
+      <div class="list-group" data-playlist-list>
+        {% for name, playlist in playlists.items() %}
+          <div class="list-group-item {% if active_playlist == name %}playlist-item-active{% endif %}" data-playlist-item data-playlist-name="{{ playlist.name|lower }}">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+              <div class="flex-grow-1">
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                  <h3 class="h5 mb-0 playlist-item-title">{{ playlist.name }}</h3>
+                  <span class="badge bg-secondary">{{ playlist.videos|length }} {{ 'Video' if playlist.videos|length == 1 else 'Videos' }}</span>
+                  {% if playlist.loop_video %}
+                    <span class="badge bg-info text-dark">Loop: {{ playlist.loop_video }}</span>
+                  {% else %}
+                    <span class="badge bg-light text-muted border">Kein Loop</span>
+                  {% endif %}
                 </div>
-              {% endif %}
-            </div>
-            <div class="text-end">
-              <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('edit_playlist', name=name) }}">Bearbeiten</a>
-              <form method="post" action="{{ url_for('start_playlist', name=name) }}" class="d-inline">
-                <button type="submit" class="btn btn-outline-primary btn-sm">Starten</button>
-              </form>
+                {% if active_playlist == name and active_progress %}
+                  <p class="mb-0 small text-muted">Als nächstes Video: {{ active_progress.next_video_index }}/{{ active_progress.total_videos }} ({{ active_progress.next_video }}), verbleibend: {{ active_progress.remaining_videos }}</p>
+                {% else %}
+                  <p class="mb-0 small text-muted">{{ playlist.videos|length }} {{ 'Titel' if playlist.videos|length == 1 else 'Titel' }} in der Wiedergabeliste.</p>
+                {% endif %}
+              </div>
+              <div class="d-flex flex-md-column flex-wrap gap-2 text-nowrap">
+                <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('edit_playlist', name=name) }}">Bearbeiten</a>
+                <form method="post" action="{{ url_for('start_playlist', name=name) }}" class="m-0">
+                  <button type="submit" class="btn btn-outline-primary btn-sm">Starten</button>
+                </form>
+              </div>
             </div>
           </div>
-        </div>
-      {% else %}
-        <p class="mb-0">Keine Playlists vorhanden.</p>
-      {% endfor %}
-    </div>
+        {% endfor %}
+      </div>
+      <p class="text-center text-muted py-4 d-none" data-playlist-empty>Keine Playlists entsprechen deiner Suche.</p>
+    {% else %}
+      <p class="mb-0 text-muted">Keine Playlists vorhanden.</p>
+    {% endif %}
   </div>
 </div>
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     const indicator = document.querySelector('[data-player-status]');
-    if (!indicator) {
-      return;
-    }
-
-    const indicatorWrapper = indicator.closest('[data-player-status-container]');
-    const playlistName = indicatorWrapper ? indicatorWrapper.dataset.playlist : null;
-    const indicatorDot = indicator.querySelector('[data-player-status-dot]');
-    const indicatorText = indicator.querySelector('[data-player-status-text]');
+    const indicatorDot = indicator ? indicator.querySelector('[data-player-status-dot]') : null;
+    const indicatorText = indicator ? indicator.querySelector('[data-player-status-text]') : null;
+    const playlistName = indicator ? indicator.dataset.activePlaylist : null;
 
     const textClassesToReset = ['text-success', 'text-danger', 'text-muted'];
     const dotClassesToReset = ['bg-success', 'bg-danger', 'bg-secondary'];
@@ -87,6 +117,9 @@
     };
 
     const applyMode = (mode) => {
+      if (!indicator || !indicatorDot || !indicatorText) {
+        return;
+      }
       const config = modeConfig[mode] || modeConfig.idle;
       indicator.dataset.mode = mode;
       indicator.classList.remove(...textClassesToReset);
@@ -97,6 +130,9 @@
     };
 
     const fetchStatus = async () => {
+      if (!indicator) {
+        return;
+      }
       try {
         const response = await fetch('{{ url_for('api_status') }}', {
           headers: { 'Accept': 'application/json' },
@@ -112,13 +148,50 @@
         const mode = payload.status && payload.status.mode ? payload.status.mode : 'idle';
         applyMode(mode);
       } catch (error) {
-        // Ignore fetch errors to keep UI responsive even without network.
+        // Ignoriere Netzwerkfehler, damit die UI responsiv bleibt.
       }
     };
 
-    applyMode(indicator.dataset.mode || 'idle');
-    fetchStatus();
-    setInterval(fetchStatus, 3000);
+    applyMode(indicator ? (indicator.dataset.mode || 'idle') : 'idle');
+    if (indicator) {
+      fetchStatus();
+      setInterval(fetchStatus, 3000);
+    }
+
+    const filterInput = document.querySelector('[data-playlist-filter]');
+    const playlistItems = Array.from(document.querySelectorAll('[data-playlist-item]'));
+    const emptyMessage = document.querySelector('[data-playlist-empty]');
+    const countBadge = document.querySelector('[data-playlist-count]');
+
+    const updateCountBadge = (visibleCount) => {
+      if (!countBadge) {
+        return;
+      }
+      const label = visibleCount === 1 ? 'Playlist' : 'Playlists';
+      countBadge.textContent = `${visibleCount} ${label}`;
+    };
+
+    const applyFilter = () => {
+      const query = (filterInput ? filterInput.value : '').trim().toLowerCase();
+      let visibleCount = 0;
+      playlistItems.forEach((item) => {
+        const matches = !query || (item.dataset.playlistName || '').includes(query);
+        item.classList.toggle('d-none', !matches);
+        if (matches) {
+          visibleCount += 1;
+        }
+      });
+      if (emptyMessage) {
+        emptyMessage.classList.toggle('d-none', visibleCount !== 0);
+      }
+      updateCountBadge(visibleCount);
+    };
+
+    if (filterInput) {
+      filterInput.addEventListener('input', applyFilter);
+    }
+
+    applyFilter();
   });
 </script>
 {% endblock %}
