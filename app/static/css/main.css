@@ -252,6 +252,10 @@ h1 {
   font-size: 1.25rem;
 }
 
+.gamepad-icon {
+  font-size: 1.25rem;
+}
+
 @media (max-width: 1440px) {
   :root {
     --container-inline-gap: clamp(1.5rem, 4.5vw, 6rem);

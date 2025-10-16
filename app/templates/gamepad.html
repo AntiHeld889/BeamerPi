@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2 class="mb-3">Gamepad-Steuerung</h2>
+<p>
+  Hier findest du eine Übersicht, wie du BeamerPi mit einem Gamepad bedienen kannst.
+  Passe die Belegung nach deinen Bedürfnissen an und teile sie mit deinem Team.
+</p>
+<div class="card">
+  <div class="card-body">
+    <h3 class="h5">Standardbelegung</h3>
+    <ul class="mb-0">
+      <li><strong>Start</strong> – Aktive Playlist starten</li>
+      <li><strong>Select</strong> – Playlist wechseln</li>
+      <li><strong>A</strong> – Nächstes Video triggern</li>
+      <li><strong>B</strong> – Trigger-Video abbrechen</li>
+      <li><strong>D-Pad</strong> – Zwischen Playlists navigieren</li>
+    </ul>
+  </div>
+</div>
+<p class="mt-3 text-muted">
+  Diese Seite dient als Dokumentation für euer Setup. Ergänze die Liste gerne mit weiteren
+  Funktionen oder Hinweisen.
+</p>
+{% endblock %}

@@ -287,6 +287,11 @@ def index() -> str:
     )
 
 
+@app.route("/gamepad")
+def gamepad() -> str:
+    return render_template("gamepad.html")
+
+
 @app.route("/playlist/new", methods=["GET", "POST"])
 def create_playlist() -> Response:
     videos = _get_videos()
