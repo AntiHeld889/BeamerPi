@@ -248,6 +248,9 @@ def _start_playlist(name: str) -> bool:
     except FileNotFoundError:
         flash("Loop-Video wurde nicht gefunden.", "error")
         _player.set_loop_video(None)
+    except ValueError as e:
+        flash(f"Ungültiger Pfad für Loop-Video: {e}", "error")
+        _player.set_loop_video(None)
     return True
 
 
@@ -265,6 +268,9 @@ def _trigger_next() -> bool:
         _player.enqueue_video(video)
     except FileNotFoundError:
         flash(f"Video {video} konnte nicht gefunden werden.", "error")
+        return False
+    except ValueError as e:
+        flash(f"Ungültiger Videopfad: {e}", "error")
         return False
     return True
 
@@ -298,6 +304,8 @@ def create_playlist() -> Response:
             selected_videos = request.form.getlist("videos")
         if not name:
             flash("Bitte einen Namen für die Playlist eingeben.", "error")
+        elif name in _playlists:
+            flash("Eine Playlist mit diesem Namen existiert bereits.", "error")
         else:
             playlist = Playlist(name=name, loop_video=loop_video, videos=selected_videos)
             _playlists[name] = playlist
@@ -516,6 +524,9 @@ def settings() -> Response:
                     except FileNotFoundError:
                         flash("Loop-Video wurde nicht gefunden.", "error")
                         _player.set_loop_video(None)
+                    except ValueError as e:
+                        flash(f"Ungültiger Pfad für Loop-Video: {e}", "error")
+                        _player.set_loop_video(None)
 
             if save_success:
                 flash("Einstellungen gespeichert.", "success")
@@ -563,6 +574,9 @@ def settings() -> Response:
                             continue
                         filename = secure_filename(file.filename)
                         if not filename:
+                            continue
+                        file_ext = Path(filename).suffix.lower()
+                        if file_ext not in ALLOWED_VIDEO_EXTENSIONS:
                             continue
                         file.save(target_directory / filename)
                         saved_files += 1
