@@ -73,7 +73,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const query = (filterInput ? filterInput.value : '').trim().toLowerCase();
     let visibleCount = 0;
     playlistItems.forEach((item) => {
-      const matches = !query || (item.dataset.playlistName || '').includes(query);
+      const playlistName = (item.dataset.playlistName || '').toLowerCase();
+      const matches = !query || playlistName.includes(query);
       item.classList.toggle('d-none', !matches);
       if (matches) {
         visibleCount += 1;
